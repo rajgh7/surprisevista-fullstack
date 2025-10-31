@@ -1,0 +1,5 @@
+import React, {useEffect, useState} from 'react'
+export default function Products(){ const [products,setProducts]=useState([])
+useEffect(()=>{ fetch('/data/products.json').then(r=>r.json()).then(setProducts) },[])
+const addToCart=(p)=>{ const cart=JSON.parse(localStorage.getItem('cart')||'[]'); cart.push(p); localStorage.setItem('cart',JSON.stringify(cart)); alert('Added to cart') }
+return (<section className='max-w-6xl mx-auto px-6 py-8'><h2 className='text-2xl text-sv-purple font-heading mb-6'>Products</h2><div className='grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'>{products.map(p=>(<div key={p.id} className='bg-white rounded-2xl shadow p-4'><img src={p.image} alt={p.name} className='w-full h-40 object-cover rounded'/><h3 className='mt-3 font-semibold'>{p.name}</h3><div className='text-sv-orange'>₹{p.price}</div><div className='mt-3 flex gap-2'><button onClick={()=>addToCart(p)} className='px-3 py-2 bg-sv-orange text-white rounded'>Add</button><a href='/cart' className='px-3 py-2 border rounded'>View Cart</a></div></div>))}</div></section>) }

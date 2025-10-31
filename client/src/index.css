@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body { @apply bg-cream-50 text-gray-800 font-body; }
+  h1,h2,h3 { @apply font-heading; }
+}
+.btn { @apply px-4 py-2 rounded shadow; }

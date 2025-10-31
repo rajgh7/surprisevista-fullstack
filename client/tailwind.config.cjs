@@ -1,0 +1,1 @@
+module.exports = { content: ['./index.html','./src/**/*.{js,jsx,ts,tsx}'], theme: { extend: { colors: { 'cream-50':'#FFFDF7','gold-500':'#D4AF37','pink-400':'#FF8FAB','sv-orange':'#FF6B55','sv-purple':'#4B2D9B' }, fontFamily: { heading:['Poppins','sans-serif'], body:['Inter','sans-serif'] } } }, plugins: [], };

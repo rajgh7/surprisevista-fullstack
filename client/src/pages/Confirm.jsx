@@ -1,0 +1,7 @@
+import React,{useState} from 'react'
+import axios from 'axios'
+export default function Confirm(){ const [form,setForm]=useState({name:'',email:'',phone:'',address:''})
+const cart=JSON.parse(localStorage.getItem('cart')||'[]')
+const total=cart.reduce((s,p)=>s+p.price,0)
+const handle=async(e)=>{ e.preventDefault(); const payload={...form,cart,totalAmount:total}; try{ await axios.post('http://localhost:5000/api/orders',payload); localStorage.removeItem('cart'); alert('Order placed'); window.location='/'; }catch(err){ alert('Error'); } }
+return (<section className='max-w-2xl mx-auto px-6 py-8'><h2 className='text-2xl text-sv-purple font-heading mb-4'>Confirm Order</h2><form onSubmit={handle} className='bg-white p-6 rounded shadow space-y-3'><input required name='name' placeholder='Name' className='w-full p-2 border rounded' onChange={e=>setForm({...form,name:e.target.value})}/><input required name='email' placeholder='Email' className='w-full p-2 border rounded' onChange={e=>setForm({...form,email:e.target.value})}/><input name='phone' placeholder='Phone' className='w-full p-2 border rounded' onChange={e=>setForm({...form,phone:e.target.value})}/><textarea required name='address' placeholder='Address' className='w-full p-2 border rounded' onChange={e=>setForm({...form,address:e.target.value})}/><div className='text-right font-semibold'>Total: ₹{total}</div><button type='submit' className='btn btn-primary'>Place Order</button></form></section>) }
