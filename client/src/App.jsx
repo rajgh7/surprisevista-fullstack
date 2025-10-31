@@ -1,6 +1,6 @@
 // src/App.jsx
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { HashRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Products from "./pages/Products";
@@ -15,11 +15,10 @@ function PrivateRoute({ children }) {
   return token ? children : <Navigate to="/admin-login" />;
 }
 
-// Hide Navbar on admin login page
+// Layout hides Navbar on admin-login page
 function Layout({ children }) {
   const location = useLocation();
   const hideNavbar = location.pathname === "/admin-login";
-
   return (
     <>
       {!hideNavbar && <Navbar />}

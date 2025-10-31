@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Replace <your-repo-name> with your actual repo name
+// IMPORTANT: update repo name if it's different on GitHub
 export default defineConfig({
+  base: '/surprisevista-fullstack/', 
   plugins: [react()],
-  base: '/surprisevista-fullstack/',  // 👈 IMPORTANT: your repo name here
 })
