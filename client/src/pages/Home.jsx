@@ -1,7 +1,14 @@
 import React from "react";
-import heroImg from "../assets/hero.jpg"; // ✅ Ensure file exists in /src/assets/
 
 export default function Home() {
+  // ✅ Attempt to import hero image from src/assets; fallback to public path if missing
+  let heroImg;
+  try {
+    heroImg = new URL("../assets/hero.jpg", import.meta.url).href;
+  } catch {
+    heroImg = `${import.meta.env.BASE_URL}hero.jpg`;
+  }
+
   return (
     <section className="max-w-6xl mx-auto px-6 py-12">
       <div className="grid md:grid-cols-2 gap-8 items-center">
