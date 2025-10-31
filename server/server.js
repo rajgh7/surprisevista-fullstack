@@ -1,36 +1,48 @@
-// server/server.js
+// server.js
 import express from "express";
-import mongoose from "mongoose";
-import cors from "cors";
 import dotenv from "dotenv";
+import cors from "cors";
+import connectDB from "./config/db.js";
+import adminRoutes from "./routes/adminRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
+import productRoutes from "./routes/productRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
 
 dotenv.config();
 
 const app = express();
-
-// Middleware
 app.use(express.json());
-app.use(
-  cors({
-    origin: "http://localhost:5173", // allow Vite frontend
-    methods: ["GET", "POST"],
-    credentials: true,
-  })
-);
 
-// MongoDB connection
-mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
+// CORS whitelist - allow your frontend origin (GitHub Pages) & local dev
+const allowedOrigins = [
+  process.env.FRONTEND_URL || "http://localhost:5173",
+  "http://localhost:5173"
+];
+app.use(cors({
+  origin: (origin, cb) => {
+    // allow requests with no origin (mobile apps, curl)
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) return cb(null, true);
+    cb(new Error("Not allowed by CORS"));
+  }
+}));
+
+// connect to MongoDB
+if (!process.env.MONGO_URI) {
+  console.error("❌ MONGO_URI not set in .env");
+  process.exit(1);
+}
+connectDB(process.env.MONGO_URI);
 
 // Routes
+app.use("/api/admin", adminRoutes);
 app.use("/api/contact", contactRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/orders", orderRoutes);
 
+// health
+app.get("/", (req, res) => res.send("SurpriseVista Backend is running"));
+
+// Listen port
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on ${PORT}`));
-
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

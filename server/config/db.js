@@ -1,11 +1,14 @@
+// config/db.js
 import mongoose from "mongoose";
 
-const connectDB = async () => {
+const connectDB = async (mongoUri) => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI);
+    const conn = await mongoose.connect(mongoUri, {
+      // Mongoose 7 doesn't need extra options but safe anyway
+    });
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-  } catch (error) {
-    console.error(`❌ Error: ${error.message}`);
+  } catch (err) {
+    console.error("❌ MongoDB connection error:", err);
     process.exit(1);
   }
 };

@@ -1,40 +1,37 @@
+// routes/adminRoutes.js
 import express from "express";
-import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
 import Admin from "../models/Admin.js";
-import { protect } from "../middleware/authMiddleware.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 const router = express.Router();
 
-// Admin Login
+// POST /api/admin/login
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
-
   try {
-    let admin = await Admin.findOne({ email });
+    // find admin
+    let admin = await Admin.findOne({ email: email.toLowerCase() });
 
-    // Create initial admin if not found
-    if (!admin && email === process.env.ADMIN_EMAIL) {
-      const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
-      admin = await Admin.create({ email, password: hashedPassword });
-      console.log("✅ Default admin created");
+    // If admin not present, auto-create default admin from env (first deploy)
+    if (!admin && process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD && process.env.ADMIN_EMAIL.toLowerCase() === email.toLowerCase()) {
+      // create using env password
+      const hashed = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
+      admin = await Admin.create({ email: email.toLowerCase(), password: hashed });
+      console.log("Created default admin from ENV");
     }
 
-    if (admin && (await admin.matchPassword(password))) {
-      const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-      res.json({ token });
-    } else {
-      res.status(401).json({ message: "Invalid credentials" });
-    }
+    if (!admin) return res.status(401).json({ message: "Invalid credentials" });
+
+    const isMatch = await admin.matchPassword(password);
+    if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
+
+    const token = jwt.sign({ id: admin._id, email: admin.email }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    res.json({ token });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
-});
-
-// Example protected route
-router.get("/profile", protect, async (req, res) => {
-  const admin = await Admin.findById(req.admin).select("-password");
-  res.json(admin);
 });
 
 export default router;
