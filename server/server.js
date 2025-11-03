@@ -1,48 +1,77 @@
-// server.js
 import express from "express";
-import dotenv from "dotenv";
+import mongoose from "mongoose";
 import cors from "cors";
-import connectDB from "./config/db.js";
-import adminRoutes from "./routes/adminRoutes.js";
-import contactRoutes from "./routes/contactRoutes.js";
-import productRoutes from "./routes/productRoutes.js";
-import orderRoutes from "./routes/orderRoutes.js";
+import dotenv from "dotenv";
+import nodemailer from "nodemailer";
 
 dotenv.config();
-
 const app = express();
+
+app.use(cors());
 app.use(express.json());
 
-// CORS whitelist - allow your frontend origin (GitHub Pages) & local dev
-const allowedOrigins = [
-  process.env.FRONTEND_URL || "http://localhost:5173",
-  "http://localhost:5173"
-];
-app.use(cors({
-  origin: (origin, cb) => {
-    // allow requests with no origin (mobile apps, curl)
-    if (!origin) return cb(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1) return cb(null, true);
-    cb(new Error("Not allowed by CORS"));
+// ✅ MongoDB Connection
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch((err) => console.error("❌ MongoDB Error:", err));
+
+// ✅ Contact Schema
+const contactSchema = new mongoose.Schema({
+  name: String,
+  email: String,
+  phone: String,
+  message: String,
+  createdAt: { type: Date, default: Date.now },
+});
+
+const Contact = mongoose.model("Contact", contactSchema);
+
+// ✅ Nodemailer Setup
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+// ✅ Contact Route
+app.post("/api/contact", async (req, res) => {
+  try {
+    const { name, email, phone, message } = req.body;
+
+    // Save to DB
+    const newContact = new Contact({ name, email, phone, message });
+    await newContact.save();
+
+    // Send email to admin
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: process.env.ADMIN_EMAIL, // your admin inbox
+      subject: `New Enquiry from ${name}`,
+      text: `
+        📩 New Contact Inquiry
+        -----------------------
+        Name: ${name}
+        Email: ${email}
+        Phone: ${phone}
+        Message: ${message}
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    console.log("✅ Email sent successfully!");
+    res.status(200).json({ success: true, message: "Enquiry received successfully!" });
+  } catch (err) {
+    console.error("❌ Error in contact route:", err);
+    res.status(500).json({ success: false, message: "Server Error" });
   }
-}));
+});
 
-// connect to MongoDB
-if (!process.env.MONGO_URI) {
-  console.error("❌ MONGO_URI not set in .env");
-  process.exit(1);
-}
-connectDB(process.env.MONGO_URI);
+// ✅ Default route
+app.get("/", (req, res) => res.send("SurpriseVista Backend Running 🚀"));
 
-// Routes
-app.use("/api/admin", adminRoutes);
-app.use("/api/contact", contactRoutes);
-app.use("/api/products", productRoutes);
-app.use("/api/orders", orderRoutes);
-
-// health
-app.get("/", (req, res) => res.send("SurpriseVista Backend is running"));
-
-// Listen port
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on ${PORT}`));
