@@ -1,33 +1,35 @@
+// server.js
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
 
+// ✅ Import route files
+import productRoutes from "./routes/productRoutes.js";
+import contactRoutes from "./routes/contactRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+
 dotenv.config();
 const app = express();
 
-app.use(cors());
+// ✅ Middleware
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "*",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  })
+);
 app.use(express.json());
 
 // ✅ MongoDB Connection
 mongoose
-  .connect(process.env.MONGO_URI)
+  .connect(process.env.MONGO_URI, { dbName: "surprisevista" })
   .then(() => console.log("✅ MongoDB Connected"))
   .catch((err) => console.error("❌ MongoDB Error:", err));
 
-// ✅ Contact Schema
-const contactSchema = new mongoose.Schema({
-  name: String,
-  email: String,
-  phone: String,
-  message: String,
-  createdAt: { type: Date, default: Date.now },
-});
-
-const Contact = mongoose.model("Contact", contactSchema);
-
-// ✅ Nodemailer Setup
+// ✅ Nodemailer setup (for contact form emails)
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -36,42 +38,31 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// ✅ Contact Route
-app.post("/api/contact", async (req, res) => {
+// ✅ Optional: basic email test route
+app.get("/api/test-email", async (req, res) => {
   try {
-    const { name, email, phone, message } = req.body;
-
-    // Save to DB
-    const newContact = new Contact({ name, email, phone, message });
-    await newContact.save();
-
-    // Send email to admin
-    const mailOptions = {
+    await transporter.sendMail({
       from: process.env.EMAIL_USER,
-      to: process.env.ADMIN_EMAIL, // your admin inbox
-      subject: `New Enquiry from ${name}`,
-      text: `
-        📩 New Contact Inquiry
-        -----------------------
-        Name: ${name}
-        Email: ${email}
-        Phone: ${phone}
-        Message: ${message}
-      `,
-    };
-
-    await transporter.sendMail(mailOptions);
-
-    console.log("✅ Email sent successfully!");
-    res.status(200).json({ success: true, message: "Enquiry received successfully!" });
+      to: process.env.ADMIN_EMAIL,
+      subject: "Test email",
+      text: "Email system working ✅",
+    });
+    res.send("✅ Email test sent successfully");
   } catch (err) {
-    console.error("❌ Error in contact route:", err);
-    res.status(500).json({ success: false, message: "Server Error" });
+    console.error(err);
+    res.status(500).send("❌ Email test failed");
   }
 });
 
-// ✅ Default route
+// ✅ Routes
+app.use("/api/products", productRoutes);
+app.use("/api/contact", contactRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/admin", adminRoutes);
+
+// ✅ Health check route
 app.get("/", (req, res) => res.send("SurpriseVista Backend Running 🚀"));
 
+// ✅ Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on ${PORT}`));

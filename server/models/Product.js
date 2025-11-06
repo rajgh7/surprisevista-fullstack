@@ -1,15 +1,21 @@
-// models/Product.js
 import mongoose from "mongoose";
 
-const productSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  slug: { type: String, index: true },
-  description: String,
-  price: { type: Number, required: true },
-  category: String,
-  images: [String],
-  inventory: { type: Number, default: 0 }
-}, { timestamps: true });
+const productSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    category: { type: String, enum: ["Party", "Corporate", "Retail"], required: true },
+    // MRP = original listed price, price = current selling price (after discount)
+    mrp: { type: Number, default: 0 },
+    discount: { type: Number, default: 0 }, // percentage (0-100)
+    price: { type: Number, required: true }, // final selling price (computed if needed)
+    description: { type: String, default: "" },
+    image: { type: String, required: true },
+    gallery: [{ type: String }],
+    isOnSale: { type: Boolean, default: false },
+    sku: { type: String, default: "" },
+    stock: { type: Number, default: 9999 }
+  },
+  { timestamps: true }
+);
 
-const Product = mongoose.models.Product || mongoose.model("Product", productSchema);
-export default Product;
+export default mongoose.model("Product", productSchema);

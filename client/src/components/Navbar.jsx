@@ -1,24 +1,37 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { getAssetPath } from "../utils/getAssetPath";
 
 export default function Navbar() {
-  const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation();
+  const [cartCount, setCartCount] = useState(0);
 
-  // ✅ Use BASE_URL so logo loads correctly on GitHub Pages & locally
-  const logoSrc = `${import.meta.env.BASE_URL}logo.jpg`;
+  useEffect(() => {
+    updateCartCount();
+    window.addEventListener("storage", updateCartCount);
+    return () => window.removeEventListener("storage", updateCartCount);
+  }, []);
+
+  const updateCartCount = () => {
+    const cart = JSON.parse(localStorage.getItem("sv_cart") || "[]");
+    const count = cart.reduce((sum, item) => sum + (item.qty || 1), 0);
+    setCartCount(count);
+  };
+
+  // Run update when navigating between pages
+  useEffect(() => {
+    updateCartCount();
+  }, [location]);
 
   return (
-    <nav className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
-        {/* Logo Section */}
+    <nav className="fixed top-0 left-0 w-full bg-white shadow z-50 backdrop-blur">
+      <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-3">
+        {/* Logo */}
         <div className="flex items-center gap-3">
-          <img
-            src={logoSrc}
-            alt="SurpriseVista Logo"
-            className="h-16 w-auto object-contain rounded-md border border-sv-purple/20 shadow-sm"
-            onError={(e) => (e.target.style.display = "none")}
-          />
+<img src={getAssetPath("logo.jpg")} alt="SurpriseVista Logo"
+            className="h-16 w-16 rounded-lg object-cover shadow-md border border-sv-purple/20"
+  />
+         
           <div>
             <div className="text-2xl font-heading text-sv-purple leading-none tracking-wide">
               SurpriseVista
@@ -29,44 +42,24 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Desktop Navigation */}
-        <div className="hidden md:flex space-x-6 text-base font-medium">
+        {/* Navigation */}
+        <div className="flex items-center space-x-6 text-base font-medium">
           <Link to="/" className="hover:text-sv-orange transition">Home</Link>
           <Link to="/products" className="hover:text-sv-orange transition">Products</Link>
           <Link to="/contact" className="hover:text-sv-orange transition">Contact</Link>
-          <Link to="/cart" className="hover:text-sv-orange transition">Cart</Link>
           <Link to="/admin" className="hover:text-sv-orange transition">Admin</Link>
-        </div>
 
-        {/* Mobile Menu Button */}
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="md:hidden focus:outline-none text-sv-purple"
-        >
-          {isOpen ? <X size={28} /> : <Menu size={28} />}
-        </button>
+          {/* Cart with live count */}
+          <Link to="/cart" className="relative hover:text-sv-orange transition">
+            🛒
+            {cartCount > 0 && (
+              <span className="absolute -top-3 -right-3 bg-sv-orange text-white text-xs font-semibold px-1.5 py-0.5 rounded-full">
+                {cartCount}
+              </span>
+            )}
+          </Link>
+        </div>
       </div>
-
-      {/* Mobile Dropdown Menu */}
-      {isOpen && (
-        <div className="md:hidden bg-white border-t border-gray-100 shadow-lg py-4 space-y-3 text-center">
-          <Link onClick={() => setIsOpen(false)} to="/" className="block hover:text-sv-orange">
-            Home
-          </Link>
-          <Link onClick={() => setIsOpen(false)} to="/products" className="block hover:text-sv-orange">
-            Products
-          </Link>
-          <Link onClick={() => setIsOpen(false)} to="/contact" className="block hover:text-sv-orange">
-            Contact
-          </Link>
-          <Link onClick={() => setIsOpen(false)} to="/cart" className="block hover:text-sv-orange">
-            Cart
-          </Link>
-          <Link onClick={() => setIsOpen(false)} to="/admin" className="block hover:text-sv-orange">
-            Admin
-          </Link>
-        </div>
-      )}
     </nav>
   );
 }

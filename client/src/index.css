@@ -2,8 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Base */
 @layer base {
-  body { @apply bg-cream-50 text-gray-800 font-body; }
-  h1,h2,h3 { @apply font-heading; }
+  body { @apply bg-gradient-to-b from-pink-50 via-yellow-50 to-white text-gray-800 font-body; }
+  h1, h2, h3 { @apply font-heading text-sv-purple; }
 }
-.btn { @apply px-4 py-2 rounded shadow; }
+
+.btn { @apply px-4 py-2 rounded shadow transition; }
+.btn-primary { @apply bg-sv-orange text-white hover:bg-orange-600; }
+.btn-outline { @apply border border-sv-orange text-sv-orange hover:bg-orange-50; }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn { animation: fadeIn 0.6s ease both; }
+
+@keyframes spin360 {
+  from { transform: rotateY(0); }
+  to { transform: rotateY(360deg); }
+}
+.animate-360 { animation: spin360 2.5s linear infinite; }
+
+/* Toast */
+.toast {
+  @apply fixed bottom-8 left-1/2 -translate-x-1/2 px-4 py-3 rounded-lg shadow-lg text-white text-sm z-50 transition-opacity duration-500;
+}
+
+/* Gallery dots */
+.gallery-dot {
+  @apply w-3 h-3 rounded-full cursor-pointer border border-gray-300 transition;
+}
+.gallery-dot.active {
+  @apply bg-sv-orange border-sv-orange;
+}
