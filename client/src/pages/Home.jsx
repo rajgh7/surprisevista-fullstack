@@ -137,10 +137,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      <section className="max-w-6xl mx-auto px-6 py-12 text-center text-sm text-gray-600">
-        © {new Date().getFullYear()} SurpriseVista. All rights reserved.
-      </section>
     </main>
   );
 }

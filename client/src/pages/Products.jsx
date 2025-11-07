@@ -77,10 +77,11 @@ function QuickView({ product, onClose, onAdd }) {
           {/* Image & Gallery */}
           <div className="flex flex-col items-center justify-center">
             <img
-              src={images[activeIndex]}
-              alt={product.name}
-              className="rounded-lg object-cover w-full h-64 animate-360"
-            />
+  src={getAssetPath(images[activeIndex])}
+  alt={product.name}
+  className="rounded-lg object-cover w-full h-64 animate-360"
+  onError={(e) => (e.target.src = getAssetPath("placeholder.jpg"))}
+/>
             <div className="flex justify-center gap-2 mt-3">
               {images.map((img, idx) => (
                 <div
