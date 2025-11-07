@@ -15,9 +15,43 @@ dotenv.config();
 
 const app = express();
 
+
+/* ============================================================
+   🧩 UNIVERSAL CORS CONFIG — Works for Local + Render + GitHub
+============================================================= */
+const allowedOrigins = [
+  "http://localhost:5173",                // local dev
+  "http://127.0.0.1:5173",                // alternate local
+  "https://rajgh7.github.io/surprisevista-fullstack", // your GitHub Pages URL
+  process.env.FRONTEND_URL,               // Render ENV variable (for flexibility)
+].filter(Boolean);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
+
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
+
+  // 🧠 Add a log for Render debugging
+  if (origin) console.log(`🌐 CORS origin: ${origin}`);
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+
 /* ============================================================
    🧩 UNIVERSAL CORS CONFIG — Local + Render + GitHub Pages
-============================================================= */
+============================================================= 
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
@@ -46,7 +80,7 @@ app.use((req, res, next) => {
   }
 
   next();
-});
+}); */
 
 // ✅ Core middlewares
 app.use(express.json());
