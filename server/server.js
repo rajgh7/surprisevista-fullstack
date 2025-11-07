@@ -21,7 +21,7 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
-  "https://rajgh7.github.io/surprisevista-client", // ✅ Replace with your real frontend repo
+  "https://rajgh7.github.io/surprisevista-fullstack", // ✅ Replace with your real frontend repo
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
