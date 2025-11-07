@@ -12,90 +12,25 @@ import adminRoutes from "./routes/adminRoutes.js";
 
 // Load environment variables
 dotenv.config();
-
 const app = express();
-
 
 /* ============================================================
    🧩 UNIVERSAL CORS CONFIG — Works for Local + Render + GitHub
 ============================================================= */
 const allowedOrigins = [
-  "http://localhost:5173",                // local dev
-  "http://127.0.0.1:5173",                // alternate local
+  "http://localhost:5173", // local dev
+  "http://127.0.0.1:5173", // alternate local
   "https://rajgh7.github.io/surprisevista-fullstack", // your GitHub Pages URL
-  process.env.FRONTEND_URL,               // Render ENV variable (for flexibility)
+  process.env.FRONTEND_URL, // Render ENV variable (for flexibility)
 ].filter(Boolean);
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (allowedOrigins.includes(origin)) {
     res.header("Access-Control-Allow-Origin", origin);
-  }
-
-  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-  res.header("Access-Control-Allow-Credentials", "true");
-
-  // 🧠 Add a log for Render debugging
-  if (origin) console.log(`🌐 CORS origin: ${origin}`);
-
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
-
-
-/* ============================================================
-   🧩 UNIVERSAL CORS CONFIG — Local + Render + GitHub Pages
-============================================================= 
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  "https://rajgh7.github.io/surprisevista-fullstack", // ✅ Replace with your real frontend repo
-  process.env.FRONTEND_URL,
-].filter(Boolean);
-
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
-  }
-
-  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-  res.header("Access-Control-Allow-Credentials", "true");
-
-  // 🧠 Debug log to confirm origin in Render logs
-  if (origin) console.log(`🌐 CORS Allowed Origin: ${origin}`);
-
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-
-  next();
-}); */
-
-/* ============================================================
-   ✅ UNIVERSAL CORS FIX — Works for Local + Render + GitHub
-============================================================= */
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  "https://rajgh7.github.io/surprisevista-fullstack",
-  process.env.FRONTEND_URL, // from Render settings (optional)
-].filter(Boolean);
-
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
+  } else if (!origin) {
+    // Allow requests like Postman or backend-to-backend
+    res.header("Access-Control-Allow-Origin", "*");
   } else {
     console.warn("🚫 CORS blocked:", origin);
   }
@@ -107,10 +42,41 @@ app.use((req, res, next) => {
   );
   res.header("Access-Control-Allow-Credentials", "true");
 
+  // 🧠 For debugging CORS requests
+  if (origin) console.log(`🌐 CORS origin: ${origin}`);
+
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
 
+/* ============================================================
+   🧩 MIDDLEWARE
+============================================================= */
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+/* ============================================================
+   🧩 DATABASE CONNECTION
+============================================================= */
+mongoose
+  .connect(process.env.MONGO_URI, {
+    dbName: "surprisevista",
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
+
+/* ============================================================
+   🧩 NODEMAILER SETUP (Contact Form Emails)
+============================================================= */
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
 /* ============================================================
    🧩 TEST ROUTES
@@ -143,6 +109,17 @@ app.use("/api/admin", adminRoutes);
 // ✅ Health check
 app.get("/", (req, res) => {
   res.send("🚀 SurpriseVista Backend Running — All Systems Go!");
+});
+
+/* ============================================================
+   🧩 DEBUG CORS ENDPOINT (Optional)
+============================================================= */
+app.get("/api/debug-cors", (req, res) => {
+  res.json({
+    origin: req.headers.origin,
+    allowed: allowedOrigins.includes(req.headers.origin),
+    allowedOrigins,
+  });
 });
 
 /* ============================================================
