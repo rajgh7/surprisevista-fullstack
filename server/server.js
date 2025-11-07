@@ -82,32 +82,35 @@ app.use((req, res, next) => {
   next();
 }); */
 
-// ✅ Core middlewares
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
 /* ============================================================
-   🧩 DATABASE CONNECTION
+   ✅ UNIVERSAL CORS FIX — Works for Local + Render + GitHub
 ============================================================= */
-mongoose
-  .connect(process.env.MONGO_URI, {
-    dbName: "surprisevista",
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "https://rajgh7.github.io/surprisevista-fullstack",
+  process.env.FRONTEND_URL, // from Render settings (optional)
+].filter(Boolean);
 
-/* ============================================================
-   🧩 NODEMAILER SETUP
-============================================================= */
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  } else {
+    console.warn("🚫 CORS blocked:", origin);
+  }
+
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+  next();
 });
+
 
 /* ============================================================
    🧩 TEST ROUTES
