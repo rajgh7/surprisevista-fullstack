@@ -11,14 +11,9 @@ const router = express.Router();
 function computePrice(mrp, discount, explicitPrice) {
   const m = Number(mrp) || 0;
   const d = Number(discount) || 0;
-  if (explicitPrice != null && explicitPrice !== "") {
-    return Number(explicitPrice);
-  }
-  if (m > 0 && d > 0) {
-    const p = Math.round(m * (1 - d / 100));
-    return p > 0 ? p : 0;
-  }
-  return m > 0 ? m : 0;
+  if (explicitPrice != null && explicitPrice !== "") return Number(explicitPrice);
+  if (m > 0 && d > 0) return Math.round(m * (1 - d / 100));
+  return m;
 }
 
 /* =====================================================
@@ -28,8 +23,8 @@ router.get("/", async (req, res) => {
   try {
     const products = await Product.find().sort({ createdAt: -1 });
 
+    // Fallback demo data (if DB empty)
     if (!products.length) {
-      // Demo fallback (if DB empty)
       const categories = ["Party", "Corporate", "Retail"];
       const imgs = [
         "images/prod1.jpg",
@@ -72,18 +67,13 @@ router.get("/", async (req, res) => {
 ===================================================== */
 router.post("/", verifyToken, async (req, res) => {
   try {
-    const body = req.body || {};
-    const mrp = Number(body.mrp) || 0;
-    const discount = Number(body.discount) || 0;
-    const price = computePrice(mrp, discount, body.price);
-
+    const { mrp = 0, discount = 0, price, ...rest } = req.body;
     const product = new Product({
-      ...body,
+      ...rest,
       mrp,
       discount,
-      price,
+      price: computePrice(mrp, discount, price),
     });
-
     await product.save();
     res.status(201).json(product);
   } catch (err) {
@@ -100,28 +90,40 @@ router.put("/:id", verifyToken, async (req, res) => {
     const { id } = req.params;
     const body = req.body || {};
 
-    // Try to find product by ObjectId or fallback
+    const mrp = Number(body.mrp ?? 0);
+    const discount = Number(body.discount ?? 0);
+    const price = computePrice(mrp, discount, body.price);
+
     let product = null;
+
+    // 🧠 Case 1: Real Mongo ObjectId
     if (mongoose.Types.ObjectId.isValid(id)) {
       product = await Product.findById(id);
     }
+
+    // 🧠 Case 2: Demo or invalid ID (e.g., demo-1)
     if (!product) {
-      product = await Product.findOne({ _id: id }).catch(() => null);
+      if (id.startsWith("demo-")) {
+        console.log(`⚙️ Auto-creating new product for demo ID: ${id}`);
+        const newProduct = new Product({
+          name: body.name || `Converted ${id}`,
+          category: body.category || "Retail",
+          mrp,
+          discount,
+          price,
+          image: body.image || "images/prod1.jpg",
+          description: body.description || "Auto-created product from demo",
+          isOnSale: body.isOnSale || false,
+        });
+        const saved = await newProduct.save();
+        return res.status(201).json(saved);
+      } else {
+        return res.status(404).json({ message: "Product not found" });
+      }
     }
 
-    if (!product) {
-      console.warn(`⚠️ Product not found: ${id}`);
-      return res.status(404).json({ message: "Product not found" });
-    }
-
-    // Compute new price
-    const mrp = body.mrp != null ? Number(body.mrp) : product.mrp;
-    const discount = body.discount != null ? Number(body.discount) : product.discount;
-    const price = computePrice(mrp, discount, body.price);
-
-    // Merge updates
+    // 🧠 Case 3: Update existing product
     Object.assign(product, { ...body, mrp, discount, price });
-
     const updated = await product.save();
     res.json(updated);
   } catch (err) {
@@ -141,11 +143,13 @@ router.delete("/:id", verifyToken, async (req, res) => {
     if (mongoose.Types.ObjectId.isValid(id)) {
       deleted = await Product.findByIdAndDelete(id);
     }
-    if (!deleted) {
-      deleted = await Product.findOneAndDelete({ _id: id }).catch(() => null);
-    }
 
     if (!deleted) {
+      if (id.startsWith("demo-")) {
+        // Don't actually delete demo data
+        console.log(`⚠️ Tried to delete demo product ${id} — skipping.`);
+        return res.json({ message: "Demo product not in database" });
+      }
       return res.status(404).json({ message: "Product not found" });
     }
 
