@@ -15,22 +15,25 @@ dotenv.config();
 const app = express();
 
 /* ============================================================
-   🧩 UNIVERSAL CORS CONFIG — Works for Local + Render + GitHub
+   ✅ UNIVERSAL CORS CONFIG — Works for Local + Render + GitHub
 ============================================================= */
 const allowedOrigins = [
-  "http://localhost:5173", // local dev
-  "http://127.0.0.1:5173", // alternate local
-  "https://rajgh7.github.io/surprisevista-fullstack", // your GitHub Pages URL
-  process.env.FRONTEND_URL, // Render ENV variable (for flexibility)
+  "http://localhost:5173", // Local dev
+  "http://127.0.0.1:5173", // Alternate local
+  "https://rajgh7.github.io", // Base GitHub Pages
+  "https://rajgh7.github.io/surprisevista-fullstack", // Deployed subpath
+  process.env.FRONTEND_URL, // Render dynamic URL (optional)
 ].filter(Boolean);
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
-  } else if (!origin) {
-    // Allow requests like Postman or backend-to-backend
-    res.header("Access-Control-Allow-Origin", "*");
+  const isAllowed =
+    !origin ||
+    allowedOrigins.includes(origin) ||
+    origin.startsWith("https://rajgh7.github.io");
+
+  if (isAllowed) {
+    res.header("Access-Control-Allow-Origin", origin || "*");
   } else {
     console.warn("🚫 CORS blocked:", origin);
   }
@@ -42,12 +45,12 @@ app.use((req, res, next) => {
   );
   res.header("Access-Control-Allow-Credentials", "true");
 
-  // 🧠 For debugging CORS requests
-  if (origin) console.log(`🌐 CORS origin: ${origin}`);
-
+  if (origin) console.log(`🌐 CORS origin allowed: ${origin}`);
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
+
+
 
 /* ============================================================
    🧩 MIDDLEWARE
