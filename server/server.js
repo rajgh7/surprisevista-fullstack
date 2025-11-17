@@ -1,9 +1,12 @@
 // server.js
+import dotenv from "dotenv";
+dotenv.config();
+console.log("DEBUG:", "RESEND_API_KEY =", process.env.RESEND_API_KEY);
 
 import path from "path";
 import express from "express";
 import mongoose from "mongoose";
-import dotenv from "dotenv";
+
 
 import productRoutes from "./routes/productRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
@@ -12,7 +15,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import Blog from "./models/Blog.js";
 import blogRoutes from "./routes/blogRoutes.js";
 
-dotenv.config();
+
 const app = express();
 
 // Serve uploads folder

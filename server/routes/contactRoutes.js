@@ -1,4 +1,6 @@
-// server/routes/contactRoutes.js
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import Contact from "../models/Contact.js";
 import { body, validationResult } from "express-validator";
@@ -7,7 +9,6 @@ import rateLimit from "express-rate-limit";
 import { Resend } from "resend";
 
 const router = express.Router();
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 /* Rate limit */
 const contactLimiter = rateLimit({
@@ -26,6 +27,9 @@ const validateContact = [
 /* Main handler */
 router.post("/", contactLimiter, validateContact, async (req, res) => {
   try {
+    // 👇 RESEND MUST BE INITIALIZED HERE
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
     const errors = validationResult(req);
     if (!errors.isEmpty())
       return res.status(400).json({ errors: errors.array() });
@@ -65,7 +69,7 @@ router.post("/", contactLimiter, validateContact, async (req, res) => {
     res.status(200).json({ message: "Message sent successfully" });
   } catch (err) {
     console.error("❌ Contact form error:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Failed to save contact or send emails" });
   }
 });
 
