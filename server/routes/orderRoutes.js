@@ -1,45 +1,54 @@
 import express from "express";
 import Order from "../models/Order.js";
 import { Resend } from "resend";
-import Razorpay from "razorpay";
-import fetch from "node-fetch"; // for WhatsApp API
+import fetch from "node-fetch";
 import dotenv from "dotenv";
 dotenv.config();
 
 const router = express.Router();
 
 // ---------------------------------------
-// 1) RAZORPAY INSTANCE
+// OPTIONAL RAZORPAY — DISABLED WHEN NO KEYS
 // ---------------------------------------
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+let razorpay = null;
+
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+  const Razorpay = (await import("razorpay")).default;
+  razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+  console.log("🟢 Razorpay Enabled");
+} else {
+  console.log("⚠️ Razorpay Disabled — No API Keys Found");
+}
 
 // ---------------------------------------
-// 2) CREATE RAZORPAY ORDER (frontend calls this)
+// SAFELY DISABLED RAZORPAY ORDER API
 // ---------------------------------------
 router.post("/create-razorpay-order", async (req, res) => {
+  if (!razorpay) {
+    return res.status(503).json({ message: "Razorpay is disabled" });
+  }
+
   try {
     const { amount } = req.body;
 
-    if (!amount) return res.status(400).json({ message: "Amount required" });
-
     const order = await razorpay.orders.create({
-      amount: amount * 100, // ₹ → paise
+      amount: amount * 100,
       currency: "INR",
       receipt: `SV_${Date.now()}`,
     });
 
     res.json(order);
   } catch (error) {
-    console.error("❌ Razorpay order error:", error);
+    console.error("❌ Razorpay Error:", error);
     res.status(500).json({ message: "Failed to create Razorpay order" });
   }
 });
 
 // ---------------------------------------
-// 3) SEND WHATSAPP MESSAGE (Admin Notification)
+// SEND WHATSAPP NOTIFICATION (Admin)
 // ---------------------------------------
 async function sendWhatsApp(orderCode, name, phone, total) {
   try {
@@ -50,7 +59,7 @@ async function sendWhatsApp(orderCode, name, phone, total) {
       to: process.env.WHATSAPP_TO,
       type: "text",
       text: {
-        body: `🛍️ *New Order Received*\n\nOrder Code: ${orderCode}\nCustomer: ${name}\nPhone: ${phone}\nTotal: ₹${total}`,
+        body: `🛍️ *New Order*\n\nOrder Code: ${orderCode}\nCustomer: ${name}\nPhone: ${phone}\nTotal: ₹${total}`,
       },
     };
 
@@ -66,26 +75,16 @@ async function sendWhatsApp(orderCode, name, phone, total) {
     const data = await response.json();
     console.log("📩 WhatsApp Response:", data);
   } catch (err) {
-    console.error("❌ WhatsApp error:", err.message);
+    console.error("❌ WhatsApp Send Error:", err.message);
   }
 }
 
 // ---------------------------------------
-// 4) PLACE ORDER (COD + Online Payment)
+// PLACE ORDER (COD + FUTURE ONLINE SUPPORT)
 // ---------------------------------------
 router.post("/", async (req, res) => {
-  console.log("📥 Incoming Order:", req.body);
-
   try {
-    const { name, email, phone, address, items, total, paymentMethod, orderCode, razorpayDetails } =
-      req.body;
-
-    if (!name || !email || !address || !items || !items.length) {
-      return res.status(400).json({ message: "Missing order details" });
-    }
-
-    // Save to MongoDB
-    const order = await Order.create({
+    const {
       name,
       email,
       phone,
@@ -94,16 +93,29 @@ router.post("/", async (req, res) => {
       total,
       paymentMethod,
       orderCode,
+      razorpayDetails,
+    } = req.body;
+
+    if (!name || !email || !address || !items || !items.length) {
+      return res.status(400).json({ message: "Missing order details" });
+    }
+
+    const order = await Order.create({
+      name,
+      email,
+      phone,
+      address,
+      items,
+      total,
+      paymentMethod: paymentMethod || "COD",
+      orderCode,
       razorpayDetails: razorpayDetails || null,
       createdAt: new Date(),
     });
 
-    // ---------------------------------------
-    // 🌟 SEND EMAILS (ADMIN + CUSTOMER)
-    // ---------------------------------------
+    // EMAILS
     const resend = new Resend(process.env.RESEND_API_KEY);
 
-    // Admin Email
     await resend.emails.send({
       from: "SurpriseVista <onboarding@resend.dev>",
       to: process.env.MAIL_TO,
@@ -116,28 +128,28 @@ router.post("/", async (req, res) => {
       `,
     });
 
-    // Customer Email
     await resend.emails.send({
       from: "SurpriseVista <onboarding@resend.dev>",
       to: email,
       subject: `🎉 Your Order ${orderCode} is Confirmed`,
       html: `
-        <h3>Thank you for your order, ${name}!</h3>
-        <p>Your order code is <strong>${orderCode}</strong>.</p>
-        <p>We will contact you shortly for delivery details.</p>
+        <h3>Thank you, ${name}!</h3>
+        <p>Your order <strong>${orderCode}</strong> has been received.</p>
+        <p>We will contact you for delivery shortly.</p>
       `,
     });
 
-    // ---------------------------------------
-    // 🌟 SEND WHATSAPP NOTIFICATION
-    // ---------------------------------------
+    // WhatsApp Admin Notification
     sendWhatsApp(orderCode, name, phone, total);
 
-    res.status(201).json({ message: "Order placed", orderId: order._id, orderCode });
-
+    res.status(201).json({
+      message: "Order placed",
+      orderId: order._id,
+      orderCode,
+    });
   } catch (error) {
-    console.log("🔥 Order Error:", error);
-    res.status(500).json({ message: "Failed to create order", error: error.message });
+    console.error("🔥 Order Error:", error);
+    res.status(500).json({ message: "Order failed", error: error.message });
   }
 });
 
