@@ -100,18 +100,83 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "Missing order details" });
     }
 
+    // FIX: REMOVE all _id values (they break MongoDB)
+    const cleanedItems = items.map((item) => {
+      const { _id, ...rest } = item;
+      return rest;
+    });
+
     const order = await Order.create({
       name,
       email,
       phone,
       address,
-      items,
+      items: cleanedItems,
       total,
       paymentMethod: paymentMethod || "COD",
       orderCode,
       razorpayDetails: razorpayDetails || null,
       createdAt: new Date(),
     });
+
+    // EMAILS
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    await resend.emails.send({
+      from: "SurpriseVista <onboarding@resend.dev>",
+      to: process.env.MAIL_TO,
+      subject: `🛍️ New Order — ${orderCode}`,
+      html: `
+        <h2>New Order Received</h2>
+        <p><strong>Order Code:</strong> ${orderCode}</p>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Total:</strong> ₹${total}</p>
+      `,
+    });
+
+    await resend.emails.send({
+      from: "SurpriseVista <onboarding@resend.dev>",
+      to: email,
+      subject: `🎉 Your Order ${orderCode} is Confirmed`,
+      html: `
+        <h3>Thank you, ${name}!</h3>
+        <p>Your order <strong>${orderCode}</strong> has been received.</p>
+        <p>We will contact you shortly.</p>
+      `,
+    });
+
+    // WhatsApp Notification
+    sendWhatsApp(orderCode, name, phone, total);
+
+    res.status(201).json({
+      message: "Order placed",
+      orderId: order._id,
+      orderCode,
+    });
+  } catch (error) {
+    console.error("🔥 Order Error:", error);
+    res.status(500).json({ message: "Order failed", error: error.message });
+  }
+});
+
+    // REMOVE _id from items to avoid CastError
+const cleanedItems = items.map(item => {
+  const { _id, ...rest } = item;
+  return rest;
+});
+
+const order = await Order.create({
+  name,
+  email,
+  phone,
+  address,
+  items: cleanedItems,
+  total,
+  paymentMethod: paymentMethod || "COD",
+  orderCode,
+  razorpayDetails: razorpayDetails || null,
+  createdAt: new Date(),
+});
+
 
     // EMAILS
     const resend = new Resend(process.env.RESEND_API_KEY);
