@@ -1,55 +1,91 @@
+// server/routes/contactRoutes.js
 import express from "express";
 import Contact from "../models/Contact.js";
-import nodemailer from "nodemailer";
+import { body, validationResult } from "express-validator";
+import sanitizeHtml from "sanitize-html";
+import rateLimit from "express-rate-limit";
+import fetch from "node-fetch";
+import { Resend } from "resend";
+import dotenv from "dotenv";
 
+dotenv.config();
 const router = express.Router();
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-router.post("/", async (req, res) => {
+/* Rate limit */
+const contactLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: { message: "Too many requests. Try again soon." },
+});
+
+/* Validation */
+const validateContact = [
+  body("name").trim().isLength({ min: 2 }),
+  body("email").isEmail(),
+  body("message").trim().isLength({ min: 5 }),
+  body("recaptchaToken").notEmpty(),
+];
+
+/* Verify reCAPTCHA */
+async function verifyRecaptcha(token) {
+  const secret = process.env.RECAPTCHA_SECRET;
+  const res = await fetch(
+    "https://www.google.com/recaptcha/api/siteverify",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `secret=${secret}&response=${token}`,
+    }
+  );
+  const data = await res.json();
+  return data.success === true;
+}
+
+/* Main handler */
+router.post("/", contactLimiter, validateContact, async (req, res) => {
   try {
-    const contact = new Contact(req.body);
-    await contact.save();
+    const results = validationResult(req);
+    if (!results.isEmpty()) return res.status(400).json({ errors: results.array() });
 
-    const transporter = nodemailer.createTransport({
-      host: process.env.MAIL_HOST,
-      port: process.env.MAIL_PORT,
-      secure: false,
-      auth: {
-        user: process.env.MAIL_USER,
-        pass: process.env.MAIL_PASS,
-      },
-    });
+    const { name, email, phone, message, recaptchaToken } = req.body;
 
-    // Admin notification
-    await transporter.sendMail({
-      from: `"SurpriseVista" <${process.env.MAIL_USER}>`,
+    const isHuman = await verifyRecaptcha(recaptchaToken);
+    if (!isHuman) return res.status(400).json({ message: "reCAPTCHA failed" });
+
+    const cleanMessage = sanitizeHtml(message);
+
+    await Contact.create({ name, email, phone, message: cleanMessage });
+
+    /* Admin email */
+    await resend.emails.send({
+      from: "SurpriseVista <onboarding@resend.dev>",
       to: process.env.MAIL_TO,
-      subject: `📩 New Enquiry from ${req.body.name}`,
+      subject: `📩 New enquiry from ${name}`,
       html: `
-        <h3>New Contact Submission</h3>
-        <p><strong>Name:</strong> ${req.body.name}</p>
-        <p><strong>Email:</strong> ${req.body.email}</p>
-        <p><strong>Phone:</strong> ${req.body.phone}</p>
-        <p><strong>Message:</strong> ${req.body.message}</p>
+        <h2>New Contact Submission</h2>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Phone:</strong> ${phone || "N/A"}</p>
+        <p><strong>Message:</strong><br/>${cleanMessage}</p>
       `,
     });
 
-    // Auto-reply to customer
-    await transporter.sendMail({
-      from: `"SurpriseVista" <${process.env.MAIL_USER}>`,
-      to: req.body.email,
-      subject: "🎁 Thank you for reaching SurpriseVista!",
+    /* Auto reply */
+    await resend.emails.send({
+      from: "SurpriseVista <onboarding@resend.dev>",
+      to: email,
+      subject: "🎁 Thank you for contacting SurpriseVista!",
       html: `
-        <p>Hi ${req.body.name},</p>
-        <p>Thank you for contacting <strong>SurpriseVista</strong>!  
-        We’ve received your enquiry and will get back to you soon.</p>
-        <p>Warm regards,<br/>The SurpriseVista Team 🎉</p>
+        <p>Hi ${name},</p>
+        <p>Thank you for contacting <strong>SurpriseVista</strong>! We will reach you soon.</p>
       `,
     });
 
-    res.status(200).json({ message: "Contact saved and emails sent" });
+    return res.status(200).json({ message: "Message sent successfully" });
   } catch (error) {
-    console.error("❌ Contact submission error:", error);
-    res.status(500).json({ message: "Failed to save contact or send emails" });
+    console.error("❌ Contact form error:", error);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 

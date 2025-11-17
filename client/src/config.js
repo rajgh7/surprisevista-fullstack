@@ -1,0 +1,5 @@
+
+// client/src/config.js
+export const API_URL = "http://localhost:5000";
+export const FRONTEND_URL = "http://localhost:5173";
+

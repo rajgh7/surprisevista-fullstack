@@ -12,8 +12,11 @@
   "dependencies": {
     "axios": "^1.7.2",
     "lucide-react": "^0.363.0",
+    "quill": "^2.0.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-helmet": "^6.1.0",
+    "react-quill": "^2.0.0",
     "react-router-dom": "^6.22.2"
   },
   "devDependencies": {

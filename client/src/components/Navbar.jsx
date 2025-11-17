@@ -47,6 +47,7 @@ export default function Navbar() {
           <Link to="/" className="hover:text-sv-orange transition">Home</Link>
           <Link to="/products" className="hover:text-sv-orange transition">Products</Link>
           <Link to="/contact" className="hover:text-sv-orange transition">Contact</Link>
+          <Link to="/blog" className="hover:text-sv-orange transition">Blog</Link>
           <Link to="/admin" className="hover:text-sv-orange transition">Admin</Link>
 
           {/* Cart with live count */}

@@ -8,6 +8,12 @@ import Contact from "./pages/Contact";
 import Cart from "./pages/Cart";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+import Blog from "./pages/Blog";
+import Post from "./pages/Post";
+import AdminBlogEditor from "./pages/AdminBlogEditor";
+import Tags from "./pages/Tags";
+import TagPosts from "./pages/TagPosts";
+
 
 // Protect admin route
 function PrivateRoute({ children }) {
@@ -32,6 +38,12 @@ export default function App() {
     <Router>
       <Layout>
         <Routes>
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/tags" element={<Tags />} />
+          <Route path="/tags/:tag" element={<TagPosts />} />
+          <Route path="/blog/:slug" element={<Post />} />
+          <Route path="/admin/blogs" element={<PrivateRoute><AdminBlogEditor /></PrivateRoute>} />
+          <Route path="/admin/blogs/edit/:id" element={<PrivateRoute><AdminBlogEditor /></PrivateRoute>} />
           <Route path="/" element={<Home />} />
           <Route path="/products" element={<Products />} />
           <Route path="/contact" element={<Contact />} />
@@ -45,6 +57,12 @@ export default function App() {
               </PrivateRoute>
             }
           />
+<Route path="/admin/blogs/edit/:id" element={
+  <PrivateRoute>
+    <AdminBlogEditor />
+  </PrivateRoute>
+}/>
+
         </Routes>
       </Layout>
 

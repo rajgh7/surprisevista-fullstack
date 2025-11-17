@@ -10,7 +10,6 @@ export default function Contact() {
 
   const [status, setStatus] = useState({ type: "", msg: "" });
 
-  // ✅ Use your Render backend URL here
   const API_BASE = "https://surprisevista-backend.onrender.com";
 
   const handleChange = (e) => {
@@ -25,7 +24,7 @@ export default function Contact() {
       const response = await fetch(`${API_BASE}/api/contact`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(formData),  // NO RECAPTCHA NOW
       });
 
       const data = await response.json();
@@ -34,7 +33,7 @@ export default function Contact() {
         setStatus({ type: "success", msg: "✅ Message sent successfully!" });
         setFormData({ name: "", email: "", phone: "", message: "" });
       } else {
-        throw new Error(data.error || "Something went wrong.");
+        throw new Error(data.message || "Something went wrong.");
       }
     } catch (error) {
       console.error(error);
@@ -50,9 +49,6 @@ export default function Contact() {
       <h1 className="text-4xl font-heading text-sv-purple mb-4">
         Contact Us
       </h1>
-      <p className="text-gray-700 mb-8">
-        Have questions or need a custom quote? We’d love to hear from you!
-      </p>
 
       <form
         onSubmit={handleSubmit}
@@ -65,7 +61,7 @@ export default function Contact() {
           value={formData.name}
           onChange={handleChange}
           required
-          className="border border-gray-300 rounded px-4 py-2 focus:ring-2 focus:ring-sv-orange"
+          className="border p-3 rounded"
         />
 
         <input
@@ -75,7 +71,7 @@ export default function Contact() {
           value={formData.email}
           onChange={handleChange}
           required
-          className="border border-gray-300 rounded px-4 py-2 focus:ring-2 focus:ring-sv-orange"
+          className="border p-3 rounded"
         />
 
         <input
@@ -84,7 +80,7 @@ export default function Contact() {
           placeholder="Phone Number"
           value={formData.phone}
           onChange={handleChange}
-          className="border border-gray-300 rounded px-4 py-2 focus:ring-2 focus:ring-sv-orange md:col-span-2"
+          className="border p-3 rounded md:col-span-2"
         />
 
         <textarea
@@ -94,13 +90,12 @@ export default function Contact() {
           onChange={handleChange}
           required
           rows="5"
-          className="border border-gray-300 rounded px-4 py-2 focus:ring-2 focus:ring-sv-orange md:col-span-2"
-        ></textarea>
+          className="border p-3 rounded md:col-span-2"
+        />
 
         <button
           type="submit"
-          disabled={status.type === "loading"}
-          className="bg-sv-orange text-white py-3 px-6 rounded shadow hover:bg-orange-600 transition md:col-span-2"
+          className="bg-sv-orange text-white py-3 px-6 rounded md:col-span-2"
         >
           {status.type === "loading" ? "Sending..." : "Send Message"}
         </button>
@@ -109,11 +104,7 @@ export default function Contact() {
       {status.msg && (
         <p
           className={`mt-4 text-center text-lg ${
-            status.type === "success"
-              ? "text-green-600"
-              : status.type === "error"
-              ? "text-red-600"
-              : "text-gray-600"
+            status.type === "success" ? "text-green-600" : "text-red-600"
           }`}
         >
           {status.msg}

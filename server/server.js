@@ -1,28 +1,32 @@
 // server.js
+
+import path from "path";
 import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
-import nodemailer from "nodemailer";
 
-// ✅ Route Imports
 import productRoutes from "./routes/productRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import Blog from "./models/Blog.js";
+import blogRoutes from "./routes/blogRoutes.js";
 
-// Load environment variables
 dotenv.config();
 const app = express();
 
+// Serve uploads folder
+app.use("/uploads", express.static(path.join(process.cwd(), "server", "uploads")));
+
 /* ============================================================
-   ✅ UNIVERSAL CORS CONFIG — Works for Local + Render + GitHub
+   🌐 CORS CONFIG
 ============================================================= */
 const allowedOrigins = [
-  "http://localhost:5173", // Local dev
-  "http://127.0.0.1:5173", // Alternate local
-  "https://rajgh7.github.io", // Base GitHub Pages
-  "https://rajgh7.github.io/surprisevista-fullstack", // Deployed subpath
-  process.env.FRONTEND_URL, // Render dynamic URL (optional)
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "https://rajgh7.github.io",
+  "https://rajgh7.github.io/surprisevista-fullstack",
+  process.env.FRONTEND_URL,
 ].filter(Boolean);
 
 app.use((req, res, next) => {
@@ -45,21 +49,18 @@ app.use((req, res, next) => {
   );
   res.header("Access-Control-Allow-Credentials", "true");
 
-  if (origin) console.log(`🌐 CORS origin allowed: ${origin}`);
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
 
-
-
 /* ============================================================
-   🧩 MIDDLEWARE
+   🧩 JSON / URL Parsing
 ============================================================= */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* ============================================================
-   🧩 DATABASE CONNECTION
+   🧩 MongoDB Connection
 ============================================================= */
 mongoose
   .connect(process.env.MONGO_URI, {
@@ -71,33 +72,32 @@ mongoose
   .catch((err) => console.error("❌ MongoDB Connection Error:", err));
 
 /* ============================================================
-   🧩 NODEMAILER SETUP (Contact Form Emails)
+   🧩 SITEMAP ROUTE
 ============================================================= */
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
-/* ============================================================
-   🧩 TEST ROUTES
-============================================================= */
-app.get("/api/test", (req, res) => res.send("✅ SurpriseVista API is Live!"));
-
-app.get("/api/test-email", async (req, res) => {
+app.get("/sitemap.xml", async (req, res) => {
   try {
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: process.env.ADMIN_EMAIL,
-      subject: "SurpriseVista Test Email",
-      text: "Your email system is configured and working ✅",
+    const posts = await Blog.find({ published: true }).sort({ publishedAt: -1 }).select("slug publishedAt updatedAt");
+    const baseUrl = process.env.BASE_URL;
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
+    xml += `<url><loc>${baseUrl}</loc><changefreq>daily</changefreq><priority>1.0</priority></url>\n`;
+
+    posts.forEach((p) => {
+      xml += `<url>
+                <loc>${baseUrl}/blog/${p.slug}</loc>
+                <lastmod>${(p.updatedAt || p.publishedAt).toISOString()}</lastmod>
+                <changefreq>weekly</changefreq>
+                <priority>0.7</priority>
+              </url>\n`;
     });
-    res.send("✅ Email test sent successfully");
+
+    xml += `</urlset>`;
+    res.header("Content-Type", "application/xml");
+    res.send(xml);
   } catch (err) {
-    console.error("❌ Email test failed:", err);
-    res.status(500).send("Email test failed");
+    console.error("sitemap error:", err);
+    res.status(500).send("Sitemap error");
   }
 });
 
@@ -108,35 +108,25 @@ app.use("/api/products", productRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/blogs", blogRoutes);
 
-// ✅ Health check
+// Health check
 app.get("/", (req, res) => {
-  res.send("🚀 SurpriseVista Backend Running — All Systems Go!");
-});
-
-/* ============================================================
-   🧩 DEBUG CORS ENDPOINT (Optional)
-============================================================= */
-app.get("/api/debug-cors", (req, res) => {
-  res.json({
-    origin: req.headers.origin,
-    allowed: allowedOrigins.includes(req.headers.origin),
-    allowedOrigins,
-  });
+  res.send("🚀 SurpriseVista Backend Running");
 });
 
 /* ============================================================
    🧩 ERROR HANDLER
 ============================================================= */
 app.use((err, req, res, next) => {
-  console.error("❌ Server Error:", err.message);
+  console.error("❌ Server Error:", err);
   res.status(500).json({ error: "Internal Server Error" });
 });
 
 /* ============================================================
-   🧩 START SERVER
+   🚀 START SERVER
 ============================================================= */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () =>
-  console.log(`🚀 Server running on port ${PORT} — CORS fixed ✅`)
+  console.log(`🚀 Server running on port ${PORT}`)
 );

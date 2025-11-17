@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_URL } from "../config";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -12,7 +13,7 @@ export default function AdminLogin() {
     setError("");
 
     try {
-      const res = await fetch("https://surprisevista-backend.onrender.com/api/admin/login", {
+      const res = await fetch(`${API_URL}/api/admin/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -21,13 +22,12 @@ export default function AdminLogin() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Login failed");
 
-      // Save token
+      // Save JWT token
       localStorage.setItem("adminToken", data.token);
 
-      // Redirect to Admin Dashboard
       navigate("/admin");
     } catch (err) {
-      console.error("❌ Admin login failed:", err);
+      console.error("Admin login failed:", err);
       setError("Invalid credentials or server error");
     }
   }
