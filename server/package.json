@@ -23,6 +23,7 @@
     "multer": "^2.0.2",
     "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.10",
+    "razorpay": "^2.9.6",
     "resend": "^6.4.2",
     "sanitize-html": "^2.17.0",
     "slugify": "^1.6.6"
