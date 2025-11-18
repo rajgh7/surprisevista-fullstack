@@ -7,9 +7,9 @@ dotenv.config();
 
 const router = express.Router();
 
-// ---------------------------------------
-// OPTIONAL RAZORPAY — DISABLED WHEN NO KEYS
-// ---------------------------------------
+/* ----------------------------------------------------
+   OPTIONAL RAZORPAY (DISABLED IF NO API KEYS)
+---------------------------------------------------- */
 let razorpay = null;
 
 if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
@@ -23,9 +23,9 @@ if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
   console.log("⚠️ Razorpay Disabled — No API Keys Found");
 }
 
-// ---------------------------------------
-// SAFELY DISABLED RAZORPAY ORDER API
-// ---------------------------------------
+/* ----------------------------------------------------
+   SAFELY DISABLED RAZORPAY ORDER ENDPOINT
+---------------------------------------------------- */
 router.post("/create-razorpay-order", async (req, res) => {
   if (!razorpay) {
     return res.status(503).json({ message: "Razorpay is disabled" });
@@ -33,7 +33,6 @@ router.post("/create-razorpay-order", async (req, res) => {
 
   try {
     const { amount } = req.body;
-
     const order = await razorpay.orders.create({
       amount: amount * 100,
       currency: "INR",
@@ -47,9 +46,9 @@ router.post("/create-razorpay-order", async (req, res) => {
   }
 });
 
-// ---------------------------------------
-// SEND WHATSAPP NOTIFICATION (Admin)
-// ---------------------------------------
+/* ----------------------------------------------------
+   WHATSAPP NOTIFICATION
+---------------------------------------------------- */
 async function sendWhatsApp(orderCode, name, phone, total) {
   try {
     const url = `https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
@@ -59,7 +58,7 @@ async function sendWhatsApp(orderCode, name, phone, total) {
       to: process.env.WHATSAPP_TO,
       type: "text",
       text: {
-        body: `🛍️ *New Order*\n\nOrder Code: ${orderCode}\nCustomer: ${name}\nPhone: ${phone}\nTotal: ₹${total}`,
+        body: `🛍️ *New Order Received*\n\nOrder Code: ${orderCode}\nCustomer: ${name}\nPhone: ${phone}\nTotal: ₹${total}`,
       },
     };
 
@@ -75,13 +74,13 @@ async function sendWhatsApp(orderCode, name, phone, total) {
     const data = await response.json();
     console.log("📩 WhatsApp Response:", data);
   } catch (err) {
-    console.error("❌ WhatsApp Send Error:", err.message);
+    console.error("❌ WhatsApp Error:", err.message);
   }
 }
 
-// ---------------------------------------
-// PLACE ORDER (COD + FUTURE ONLINE SUPPORT)
-// ---------------------------------------
+/* ----------------------------------------------------
+   PLACE ORDER (COD)
+---------------------------------------------------- */
 router.post("/", async (req, res) => {
   try {
     const {
@@ -100,8 +99,8 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "Missing order details" });
     }
 
-    // FIX: REMOVE all _id values (they break MongoDB)
-    const cleanedItems = items.map((item) => {
+    /* FIX: REMOVE _id from items */
+    const cleanedItems = items.map(item => {
       const { _id, ...rest } = item;
       return rest;
     });
@@ -119,8 +118,9 @@ router.post("/", async (req, res) => {
       createdAt: new Date(),
     });
 
-    // EMAILS
+    // EMAIL NOTIFICATIONS
     const resend = new Resend(process.env.RESEND_API_KEY);
+
     await resend.emails.send({
       from: "SurpriseVista <onboarding@resend.dev>",
       to: process.env.MAIL_TO,
@@ -144,74 +144,15 @@ router.post("/", async (req, res) => {
       `,
     });
 
-    // WhatsApp Notification
+    // WHATSAPP NOTIFICATION
     sendWhatsApp(orderCode, name, phone, total);
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Order placed",
       orderId: order._id,
       orderCode,
     });
-  } catch (error) {
-    console.error("🔥 Order Error:", error);
-    res.status(500).json({ message: "Order failed", error: error.message });
-  }
-});
 
-    // REMOVE _id from items to avoid CastError
-const cleanedItems = items.map(item => {
-  const { _id, ...rest } = item;
-  return rest;
-});
-
-const order = await Order.create({
-  name,
-  email,
-  phone,
-  address,
-  items: cleanedItems,
-  total,
-  paymentMethod: paymentMethod || "COD",
-  orderCode,
-  razorpayDetails: razorpayDetails || null,
-  createdAt: new Date(),
-});
-
-
-    // EMAILS
-    const resend = new Resend(process.env.RESEND_API_KEY);
-
-    await resend.emails.send({
-      from: "SurpriseVista <onboarding@resend.dev>",
-      to: process.env.MAIL_TO,
-      subject: `🛍️ New Order — ${orderCode}`,
-      html: `
-        <h2>New Order Received</h2>
-        <p><strong>Order Code:</strong> ${orderCode}</p>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Total:</strong> ₹${total}</p>
-      `,
-    });
-
-    await resend.emails.send({
-      from: "SurpriseVista <onboarding@resend.dev>",
-      to: email,
-      subject: `🎉 Your Order ${orderCode} is Confirmed`,
-      html: `
-        <h3>Thank you, ${name}!</h3>
-        <p>Your order <strong>${orderCode}</strong> has been received.</p>
-        <p>We will contact you for delivery shortly.</p>
-      `,
-    });
-
-    // WhatsApp Admin Notification
-    sendWhatsApp(orderCode, name, phone, total);
-
-    res.status(201).json({
-      message: "Order placed",
-      orderId: order._id,
-      orderCode,
-    });
   } catch (error) {
     console.error("🔥 Order Error:", error);
     res.status(500).json({ message: "Order failed", error: error.message });
