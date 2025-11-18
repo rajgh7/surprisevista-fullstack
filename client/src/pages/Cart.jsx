@@ -16,30 +16,38 @@ export default function Cart() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Load cart and normalize each item to always use `id`
     const saved = JSON.parse(localStorage.getItem("cart") || "[]");
-    setCart(saved);
+    const normalized = saved.map((it) => ({
+      ...it,
+      id: it.id || it._id, // fallback to _id if older entries exist
+      qty: typeof it.qty === "number" ? it.qty : 1,
+    }));
+    setCart(normalized);
   }, []);
 
   function saveCart(newCart) {
-    setCart(newCart);
-    localStorage.setItem("cart", JSON.stringify(newCart));
+    // Ensure normalization before saving
+    const normalized = newCart.map((it) => ({ ...it, id: it.id || it._id }));
+    setCart(normalized);
+    localStorage.setItem("cart", JSON.stringify(normalized));
   }
 
   function updateQty(id, type) {
     const updated = cart.map((item) =>
-      item.id === id
-        ? { ...item, qty: item.qty + (type === "+" ? 1 : -1) }
+      (item.id || item._id) === id
+        ? { ...item, qty: Math.max(0, (item.qty || 1) + (type === "+" ? 1 : -1)) }
         : item
     );
     saveCart(updated.filter((i) => i.qty > 0));
   }
 
   function removeItem(id) {
-    saveCart(cart.filter((item) => item.id !== id));
+    saveCart(cart.filter((item) => (item.id || item._id) !== id));
   }
 
   const subtotal = cart.reduce(
-    (sum, p) => sum + p.price * (p.qty || 1),
+    (sum, p) => sum + Number(p.price || 0) * (p.qty || 1),
     0
   );
   const delivery = subtotal > 0 ? 59 : 0;
@@ -69,7 +77,15 @@ export default function Cart() {
     setPlacing(true);
 
     try {
-      const cleanItems = cart.map(({ _id, ...rest }) => rest);
+      // Remove any Mongo `_id` if present, keep id as product identifier
+      const cleanItems = cart.map(({ _id, ...rest }) => {
+        // ensure id exists (some entries might have id or _id)
+        return {
+          ...rest,
+          id: rest.id || rest._id,
+        };
+      });
+
       const orderCode = generateOrderCode();
 
       const res = await fetch(`${API_BASE}/api/orders`, {
@@ -85,11 +101,12 @@ export default function Cart() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) throw new Error(data.message || "Order failed");
 
       localStorage.removeItem("cart");
       navigate("/thank-you", { state: { order: data } });
     } catch (err) {
+      console.error("Place order error:", err);
       setError("Failed to place order. Try again.");
     } finally {
       setPlacing(false);
@@ -106,13 +123,14 @@ export default function Cart() {
         <>
           {cart.map((item) => (
             <div
-              key={item.id}
+              key={item.id || item._id}
               className="bg-white p-4 rounded-lg shadow flex justify-between items-center mb-4"
             >
               <div className="flex items-center gap-4">
                 <img
                   src={item.image}
                   className="w-20 h-20 rounded object-cover"
+                  alt={item.name}
                 />
                 <div>
                   <h3>{item.name}</h3>
@@ -120,7 +138,7 @@ export default function Cart() {
 
                   <div className="flex gap-2 mt-2">
                     <button
-                      onClick={() => updateQty(item.id, "-")}
+                      onClick={() => updateQty(item.id || item._id, "-")}
                       className="border px-3 py-1"
                     >
                       -
@@ -129,7 +147,7 @@ export default function Cart() {
                       {item.qty}
                     </span>
                     <button
-                      onClick={() => updateQty(item.id, "+")}
+                      onClick={() => updateQty(item.id || item._id, "+")}
                       className="border px-3 py-1"
                     >
                       +
@@ -139,7 +157,7 @@ export default function Cart() {
               </div>
 
               <button
-                onClick={() => removeItem(item.id)}
+                onClick={() => removeItem(item.id || item._id)}
                 className="text-sm border px-4 py-2"
               >
                 Remove

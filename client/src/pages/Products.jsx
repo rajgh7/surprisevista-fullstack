@@ -66,21 +66,46 @@ export default function Products() {
     fetch("https://surprisevista-backend.onrender.com/api/products")
       .then((r) => r.json())
       .then((data) => {
-        allProducts.current = Array.isArray(data) ? data : [];
+        // Normalize each product to always include `id`
+        const normalized = Array.isArray(data)
+          ? data.map((prod) => ({
+              ...prod,
+              id: prod.id || prod._id || (typeof prod === "object" && prod._id ? prod._id : undefined),
+            }))
+          : [];
+
+        allProducts.current = normalized;
         setVisible(allProducts.current.slice(0, batchSize));
         setNextIndex(batchSize);
       })
       .catch(() => {
         allProducts.current = [];
       });
-  }, []);
+  }, [batchSize]);
 
   function addToCart(p) {
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-    const exists = cart.find((c) => c.id === p.id);
+    // Make a safe shallow copy and ensure `id` exists
+    const productToAdd = { ...p, id: p.id || p._id };
 
-    if (exists) exists.qty += 1;
-    else cart.push({ ...p, qty: 1 });
+    const cart = JSON.parse(localStorage.getItem("cart") || "[]").map((it) => ({
+      ...it,
+      id: it.id || it._id, // normalize any old entries
+    }));
+
+    const exists = cart.find((c) => c.id === productToAdd.id);
+
+    if (exists) {
+      exists.qty = (exists.qty || 1) + 1;
+    } else {
+      cart.push({
+        id: productToAdd.id,
+        name: productToAdd.name,
+        price: productToAdd.price,
+        image: productToAdd.image,
+        qty: 1,
+        // keep extra fields only if you want (avoid _id duplication)
+      });
+    }
 
     localStorage.setItem("cart", JSON.stringify(cart));
     showToast("Added to cart");
@@ -96,7 +121,7 @@ export default function Products() {
       <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {visible.map((p) => (
           <ProductCard
-            key={p.id}
+            key={p.id || p._id}
             p={p}
             onAdd={addToCart}
             onQuickView={setQuickProduct}
