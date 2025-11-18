@@ -49,6 +49,8 @@ export default function App() {
           <Route path="/contact" element={<Contact />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/admin-login" element={<AdminLogin />} />
+          <Route path="/thank-you" element={<ThankYou />} />
+
           <Route
             path="/admin"
             element={
