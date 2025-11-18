@@ -7,6 +7,9 @@ dotenv.config();
 
 const router = express.Router();
 
+// Disable WhatsApp for now
+const WHATSAPP_ENABLED = false;
+
 /* ----------------------------------------------------
    OPTIONAL RAZORPAY (DISABLED IF NO API KEYS)
 ---------------------------------------------------- */
@@ -47,35 +50,15 @@ router.post("/create-razorpay-order", async (req, res) => {
 });
 
 /* ----------------------------------------------------
-   WHATSAPP NOTIFICATION
+   WHATSAPP NOTIFICATION (DISABLED)
 ---------------------------------------------------- */
 async function sendWhatsApp(orderCode, name, phone, total) {
-  try {
-    const url = `https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
-
-    const payload = {
-      messaging_product: "whatsapp",
-      to: process.env.WHATSAPP_TO,
-      type: "text",
-      text: {
-        body: `🛍️ *New Order Received*\n\nOrder Code: ${orderCode}\nCustomer: ${name}\nPhone: ${phone}\nTotal: ₹${total}`,
-      },
-    };
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await response.json();
-    console.log("📩 WhatsApp Response:", data);
-  } catch (err) {
-    console.error("❌ WhatsApp Error:", err.message);
+  if (!WHATSAPP_ENABLED) {
+    console.log("📵 WhatsApp Disabled — Skipping message...");
+    return;
   }
+
+  // Future WhatsApp API code will go here
 }
 
 /* ----------------------------------------------------
@@ -144,8 +127,10 @@ router.post("/", async (req, res) => {
       `,
     });
 
-    // WHATSAPP NOTIFICATION
-    sendWhatsApp(orderCode, name, phone, total);
+    // WhatsApp disabled
+    // sendWhatsApp(orderCode, name, phone, total);
+
+    console.log("📵 WhatsApp skipped.");
 
     return res.status(201).json({
       message: "Order placed",
