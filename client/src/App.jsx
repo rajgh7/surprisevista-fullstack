@@ -13,6 +13,8 @@ import Post from "./pages/Post";
 import AdminBlogEditor from "./pages/AdminBlogEditor";
 import Tags from "./pages/Tags";
 import TagPosts from "./pages/TagPosts";
+import ThankYou from "./pages/ThankYou";
+
 
 
 // Protect admin route
