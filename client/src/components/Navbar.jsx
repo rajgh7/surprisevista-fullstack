@@ -1,64 +1,98 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { getAssetPath } from "../utils/getAssetPath";
 
 export default function Navbar() {
-  const location = useLocation();
   const [cartCount, setCartCount] = useState(0);
+  const [pulse, setPulse] = useState(false);
+  const location = useLocation();
 
-  useEffect(() => {
-    updateCartCount();
-    window.addEventListener("storage", updateCartCount);
-    return () => window.removeEventListener("storage", updateCartCount);
-  }, []);
-
-  const updateCartCount = () => {
-    const cart = JSON.parse(localStorage.getItem("sv_cart") || "[]");
-    const count = cart.reduce((sum, item) => sum + (item.qty || 1), 0);
-    setCartCount(count);
-  };
-
-  // Run update when navigating between pages
+  // Load and update cart count
   useEffect(() => {
     updateCartCount();
   }, [location]);
 
+  // Listen for localStorage changes
+  useEffect(() => {
+    const listener = () => updateCartCount();
+    window.addEventListener("storage", listener);
+    return () => window.removeEventListener("storage", listener);
+  }, []);
+
+  function updateCartCount() {
+    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+
+    let total = 0;
+    cart.forEach((item) => {
+      total += item.qty || 1;
+    });
+
+    // Trigger pulse animation on count update
+    if (total !== cartCount) {
+      setPulse(true);
+      setTimeout(() => setPulse(false), 600);
+    }
+
+    setCartCount(total);
+  }
+
   return (
-    <nav className="fixed top-0 left-0 w-full bg-white shadow z-50 backdrop-blur">
-      <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-3">
-        {/* Logo */}
-        <div className="flex items-center gap-3">
-<img src={getAssetPath("logo.jpg")} alt="SurpriseVista Logo"
-            className="h-16 w-16 rounded-lg object-cover shadow-md border border-sv-purple/20"
-  />
-         
+    <nav className="shadow bg-white py-4 animate-fadeIn">
+      <div className="max-w-6xl mx-auto flex justify-between items-center px-6">
+
+        {/* LOGO WITH ANIMATIONS */}
+        <Link to="/" className="flex items-center gap-3">
+          <img
+            src="logo.png"
+            alt="SurpriseVista Logo"
+            className={`w-20 h-auto drop-shadow-xl transition-all duration-500 
+              hover:rotate-6 hover:scale-110 hover:brightness-110 
+              ${pulse ? "animate-pulseLogo" : ""}
+            `}
+          />
+
           <div>
-            <div className="text-2xl font-heading text-sv-purple leading-none tracking-wide">
-              SurpriseVista
-            </div>
-            <div className="text-sm text-sv-orange font-medium tracking-tight">
-              Unbox Happiness
-            </div>
+            <h1 className="text-2xl font-extrabold text-sv-purple animate-bounceSlow">
+              Surprise <br />Vista
+            </h1>
+            <p className="text-xs text-gray-500 -mt-1">Unbox Happiness</p>
           </div>
-        </div>
+        </Link>
 
-        {/* Navigation */}
-        <div className="flex items-center space-x-6 text-base font-medium">
-          <Link to="/" className="hover:text-sv-orange transition">Home</Link>
-          <Link to="/products" className="hover:text-sv-orange transition">Products</Link>
-          <Link to="/contact" className="hover:text-sv-orange transition">Contact</Link>
-          <Link to="/blog" className="hover:text-sv-orange transition">Blog</Link>
-          <Link to="/admin" className="hover:text-sv-orange transition">Admin</Link>
+        {/* NAV LINKS */}
+        <div className="flex items-center gap-6">
+          <Link to="/">Home</Link>
+          <Link to="/products">Products</Link>
+          <Link to="/contact">Contact</Link>
+          <Link to="/blog">Blog</Link>
+          <Link to="/admin">Admin</Link>
 
-          {/* Cart with live count */}
-          <Link to="/cart" className="relative hover:text-sv-orange transition">
-            🛒
-            {cartCount > 0 && (
-              <span className="absolute -top-3 -right-3 bg-sv-orange text-white text-xs font-semibold px-1.5 py-0.5 rounded-full">
-                {cartCount}
-              </span>
-            )}
-          </Link>
+          <Link to="/cart" className="relative">
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth="1.8"
+    stroke="currentColor"
+    className={`w-7 h-7 transition-transform duration-300 ${
+      pulse ? "scale-125" : ""
+    }`}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M3 3h2l.4 2M7 13h10l3-8H6.4M7 13L5.4 5M7 13l-2 8h12l2-8M10 21a1 1 0 100-2 1 1 0 000 2zm8 0a1 1 0 100-2 1 1 0 000 2z"
+    />
+  </svg>
+
+  {cartCount > 0 && (
+    <span
+      className="absolute -top-2 -right-2 bg-red-600 text-white text-xs px-2 rounded-full shadow animate-fadeIn"
+    >
+      {cartCount}
+    </span>
+  )}
+</Link>
+
         </div>
       </div>
     </nav>
