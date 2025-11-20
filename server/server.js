@@ -7,7 +7,7 @@ import path from "path";
 import express from "express";
 import mongoose from "mongoose";
 
-
+import whatsappRoutes from "./routes/whatsappRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
@@ -112,6 +112,8 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/blogs", blogRoutes);
+app.use("/webhook/whatsapp", whatsappRoutes);
+
 
 // Health check
 app.get("/", (req, res) => {
