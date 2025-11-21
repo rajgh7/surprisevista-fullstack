@@ -1,3 +1,4 @@
+// server/routes/orderRoutes.js
 import express from "express";
 import Order from "../models/Order.js";
 import { Resend } from "resend";
@@ -7,11 +8,8 @@ dotenv.config();
 
 const router = express.Router();
 
-// Disable WhatsApp for now
-const WHATSAPP_ENABLED = false;
-
 /* ----------------------------------------------------
-   OPTIONAL RAZORPAY (DISABLED IF NO API KEYS)
+   OPTIONAL RAZORPAY
 ---------------------------------------------------- */
 let razorpay = null;
 
@@ -27,7 +25,7 @@ if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
 }
 
 /* ----------------------------------------------------
-   SAFELY DISABLED RAZORPAY ORDER ENDPOINT
+   CREATE RAZORPAY ORDER
 ---------------------------------------------------- */
 router.post("/create-razorpay-order", async (req, res) => {
   if (!razorpay) {
@@ -50,19 +48,7 @@ router.post("/create-razorpay-order", async (req, res) => {
 });
 
 /* ----------------------------------------------------
-   WHATSAPP NOTIFICATION (DISABLED)
----------------------------------------------------- */
-async function sendWhatsApp(orderCode, name, phone, total) {
-  if (!WHATSAPP_ENABLED) {
-    console.log("📵 WhatsApp Disabled — Skipping message...");
-    return;
-  }
-
-  // Future WhatsApp API code will go here
-}
-
-/* ----------------------------------------------------
-   PLACE ORDER (COD)
+   PLACE ORDER
 ---------------------------------------------------- */
 router.post("/", async (req, res) => {
   try {
@@ -82,8 +68,8 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "Missing order details" });
     }
 
-    /* FIX: REMOVE _id from items */
-    const cleanedItems = items.map(item => {
+    // Remove any Mongo _id from items
+    const cleanedItems = items.map((item) => {
       const { _id, ...rest } = item;
       return rest;
     });
@@ -101,9 +87,12 @@ router.post("/", async (req, res) => {
       createdAt: new Date(),
     });
 
-    // EMAIL NOTIFICATIONS
+    /* ----------------------------------------------------
+       EMAIL NOTIFICATIONS
+    ---------------------------------------------------- */
     const resend = new Resend(process.env.RESEND_API_KEY);
 
+    // Email to Admin
     await resend.emails.send({
       from: "SurpriseVista <onboarding@resend.dev>",
       to: process.env.MAIL_TO,
@@ -116,6 +105,7 @@ router.post("/", async (req, res) => {
       `,
     });
 
+    // Email to Customer
     await resend.emails.send({
       from: "SurpriseVista <onboarding@resend.dev>",
       to: email,
@@ -127,11 +117,32 @@ router.post("/", async (req, res) => {
       `,
     });
 
-    // WhatsApp disabled
-    // sendWhatsApp(orderCode, name, phone, total);
+    /* ----------------------------------------------------
+       🚀 SEND WHATSAPP CONFIRMATION (AUTO)
+       Using your active API route:
+       POST /api/whatsapp/send-order
+    ---------------------------------------------------- */
+    try {
+      if (phone) {
+        await fetch(`${process.env.BASE_URL}/api/whatsapp/send-order`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: phone,
+            orderId: order._id,
+          }),
+        });
+        console.log("📲 WhatsApp notification sent");
+      } else {
+        console.log("⚠️ No phone number provided — skipping WhatsApp");
+      }
+    } catch (err) {
+      console.error("❌ WhatsApp Send Failed:", err.message);
+    }
 
-    console.log("📵 WhatsApp skipped.");
-
+    /* ----------------------------------------------------
+       SEND FINAL RESPONSE
+    ---------------------------------------------------- */
     return res.status(201).json({
       message: "Order placed",
       orderId: order._id,

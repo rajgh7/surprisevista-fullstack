@@ -1,31 +1,35 @@
 // controllers/whatsappController.js
-import Product from "../models/Product.js"; // product schema used for catalog. :contentReference[oaicite:3]{index=3}
-import Order from "../models/Order.js";     // order model. :contentReference[oaicite:4]{index=4}
-import { sendText, sendInteractiveList, sendImage, sendButtons } from "../services/whatsappService.js";
+import Product from "../models/Product.js";
+import Order from "../models/Order.js";
+import {
+  sendText,
+  sendInteractiveList,
+  sendImage,
+  sendButtons,
+} from "../services/whatsappService.js";
 import crypto from "crypto";
 
-const sessions = new Map(); // simple in-memory sessions: phone -> { cart: [], step, currentProduct }
+const sessions = new Map(); // phone -> { cart, step, currentProduct }
 
 export function webhookVerify(req, res) {
-  // Meta verification: GET /webhook?hub.mode=subscribe&hub.verify_token=TOKEN&hub.challenge=CHALLENGE
   const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
-  if (mode && token && mode === "subscribe" && token === verifyToken) {
-    console.log("✅ Webhook verified by Meta");
+  if (mode === "subscribe" && token === verifyToken) {
+    console.log("✅ WhatsApp Webhook Verified");
     return res.status(200).send(challenge);
   }
-  res.sendStatus(403);
+  return res.sendStatus(403);
 }
 
 function getSession(phone) {
-  if (!sessions.has(phone)) sessions.set(phone, { cart: [], step: "idle" });
+  if (!sessions.has(phone))
+    sessions.set(phone, { cart: [], step: "idle", currentProduct: null });
   return sessions.get(phone);
 }
 
-// Helper to build demo product for demo- ids (productRoutes had demo fallback). :contentReference[oaicite:5]{index=5}
 function demoProduct(id) {
   const i = Number(id.split("-")[1] || 1);
   return {
@@ -41,35 +45,40 @@ function demoProduct(id) {
 export async function handleIncoming(req, res) {
   try {
     const body = req.body;
-
-    // Meta wraps messages inside entry[] -> changes[] -> value.messages
-    if (!body.entry) return res.sendStatus(200);
+    if (!body?.entry) return res.sendStatus(200);
 
     const change = body.entry[0]?.changes?.[0];
     const value = change?.value;
     const message = value?.messages?.[0];
+    const contact = value?.contacts?.[0];
 
     if (!message) return res.sendStatus(200);
 
-    const from = message.from; // phone number
+    const from = message.from;
     const type = message.type;
     const session = getSession(from);
 
-    // Handle interactive replies
+    const senderName =
+      contact?.profile?.name || contact?.wa_id || from;
+
+    /** ================================
+     * 1. Handle INTERACTIVE replies
+     * ================================*/
     if (message.interactive) {
-      const interactive = message.interactive;
-      if (interactive.type === "list_reply") {
-        const id = interactive.list_reply.id; // e.g., product_<id>
-        // product selection
-        if (id && id.startsWith("product_")) {
-          const pid = id.split("product_")[1];
-          let product = null;
-          if (pid.startsWith("demo-")) {
-            product = demoProduct(pid);
-          } else {
-            product = await Product.findById(pid).lean();
-            if (!product) product = demoProduct(pid); // fallback
-          }
+      const inter = message.interactive;
+
+      // LIST → product selection
+      if (inter.type === "list_reply") {
+        const id = inter.list_reply.id;
+        if (id.startsWith("product_")) {
+          const pid = id.replace("product_", "");
+          let product =
+            pid.startsWith("demo-")
+              ? demoProduct(pid)
+              : await Product.findById(pid).lean();
+
+          if (!product) product = demoProduct(pid);
+
           session.currentProduct = {
             _id: product._id,
             name: product.name,
@@ -78,115 +87,219 @@ export async function handleIncoming(req, res) {
             description: product.description,
           };
           session.step = "selected_product";
-          await sendText(from, `You selected *${product.name}*\nPrice: ₹${product.price}\nType *buy* to add to cart or *menu* to continue browsing.`);
+
+          await sendText(
+            from,
+            `You selected *${product.name}*\nPrice: ₹${product.price}\n\nType *buy* to add to cart or *menu* to browse more.`
+          );
           return res.sendStatus(200);
         }
-      } else if (interactive.type === "button_reply") {
-        const payload = interactive.button_reply.id;
-        if (payload === "view_cart") {
-          // show cart
-          const cart = session.cart || [];
-          if (!cart.length) {
+      }
+
+      // BUTTON REPLY
+      if (inter.type === "button_reply") {
+        const action = inter.button_reply.id;
+
+        if (action === "view_cart") {
+          const cart = session.cart;
+          if (!cart.length)
             await sendText(from, "Your cart is empty. Type *menu* to browse products.");
-          } else {
-            let msg = "Your Cart:\n";
-            cart.forEach((it, idx) => {
-              msg += `${idx + 1}. ${it.name} x${it.qty} - ₹${it.price * it.qty}\n`;
-            });
-            msg += `\nType *checkout* to place order or *menu* to continue.`;
+          else {
+            let msg = "🛒 *Your Cart*\n\n";
+            cart.forEach(
+              (it, idx) =>
+                (msg += `${idx + 1}. ${it.name} x${it.qty} — ₹${
+                  it.price * it.qty
+                }\n`)
+            );
+            msg += `\nType *checkout* to place order.`;
             await sendText(from, msg);
           }
+          return res.sendStatus(200);
+        }
+
+        if (action === "track_order") {
+          await sendText(
+            from,
+            "Please send your order code.\nExample: *track SV-20250101-12345*"
+          );
           return res.sendStatus(200);
         }
       }
     }
 
-    // Text messages handling
+    /** ================================
+     * 2. TEXT MESSAGES
+     * ================================*/
     if (type === "text") {
-      const text = message.text.body.trim().toLowerCase();
+      const textRaw = message.text.body.trim();
+      const text = textRaw.toLowerCase();
 
-      if (text === "menu") {
-        // send interactive list of products (first 10)
-        const products = await Product.find().limit(20).lean();
-        if (!products.length) {
-          // demo list
-          const rows = [];
-          for (let i = 1; i <= 8; i++) {
-            rows.push({
-              id: `product_demo-${i}`,
-              title: `Demo Gift ${i}`,
-              description: `₹${499 + i * 10}`,
-            });
-          }
-          await sendInteractiveList(from, "SurpriseVista Products", "Choose product:", rows);
-        } else {
-          const rows = products.slice(0, 20).map((p) => ({
-            id: `product_${p._id}`,
-            title: p.name,
-            description: `₹${p.price}`,
-          }));
-          await sendInteractiveList(from, "SurpriseVista Products", "Choose product:", rows);
+      /** ==========================
+       * ⭐ ORDER TRACKING
+       * ==========================*/
+      const trackMatch = text.match(
+        /(?:track|status)\s+([A-Za-z0-9\-]+)/i
+      );
+      const pureOrderCodeMatch = textRaw.match(/^SV[-A-Za-z0-9]+$/i);
+
+      if (trackMatch || pureOrderCodeMatch) {
+        const orderCode = (trackMatch?.[1] || pureOrderCodeMatch[0]).toUpperCase();
+
+        let order =
+          (await Order.findOne({ orderCode }).lean()) ||
+          (orderCode.match(/^[0-9a-fA-F]{24}$/)
+            ? await Order.findById(orderCode).lean()
+            : null);
+
+        if (!order) {
+          await sendText(
+            from,
+            `❌ Order *${orderCode}* not found.\nCheck the code and try again.`
+          );
+          return res.sendStatus(200);
         }
+
+        const status = order.status || "Placed";
+        const createdAt = new Date(order.createdAt).toLocaleString("en-IN");
+        const itemsText = order.items
+          .map(
+            (i) => `• ${i.name} x${i.qty} — ₹${i.price * i.qty}`
+          )
+          .join("\n");
+
+        let eta = "We will update you soon.";
+        if (status.toLowerCase().includes("processing")) eta = "Your order is being packed.";
+        if (status.toLowerCase().includes("shipped")) eta = "Expected delivery: 1–3 days.";
+        if (status.toLowerCase().includes("delivered")) eta = "Delivered. 🎉";
+
+        const reply = `🧾 *Order:* ${order.orderCode}
+📌 *Status:* ${status}
+🕒 *Placed:* ${createdAt}
+💰 *Total:* ₹${order.total}
+📍 *Address:* ${order.address}
+
+*Items:*
+${itemsText}
+
+${eta}
+
+Reply *menu* to browse or *help* for assistance.`;
+
+        await sendText(from, reply);
+        return res.sendStatus(200);
+      }
+
+      /** ==========================
+       * MENU
+       * ==========================*/
+      if (text === "menu") {
+        const products = await Product.find().limit(20).lean();
+        const rows = products.length
+          ? products.map((p) => ({
+              id: `product_${p._id}`,
+              title: p.name,
+              description: `₹${p.price}`,
+            }))
+          : Array.from({ length: 8 }).map((_, i) => ({
+              id: `product_demo-${i + 1}`,
+              title: `Demo Gift ${i + 1}`,
+              description: `₹${499 + (i + 1) * 10}`,
+            }));
+
+        await sendInteractiveList(
+          from,
+          "SurpriseVista Products",
+          "Choose a product:",
+          rows
+        );
         session.step = "browsing";
         return res.sendStatus(200);
       }
 
+      /** ==========================
+       * BUY
+       * ==========================*/
       if (text === "buy") {
         if (!session.currentProduct) {
-          await sendText(from, "No product selected. Type *menu* to browse products.");
+          await sendText(from, "No product selected. Type *menu* to browse.");
           return res.sendStatus(200);
         }
-        // add to cart
+
         const item = { ...session.currentProduct, qty: 1 };
         session.cart.push(item);
-        await sendText(from, `✅ Added *${item.name}* to cart.\nType *checkout* to place order or *menu* to keep browsing.`);
+
+        await sendText(
+          from,
+          `🛒 Added *${item.name}* to cart.\nType *checkout* or *menu*.`
+        );
+
         session.currentProduct = null;
         session.step = "idle";
         return res.sendStatus(200);
       }
 
+      /** ==========================
+       * CART
+       * ==========================*/
       if (text === "cart") {
-        const cart = session.cart || [];
-        if (!cart.length) {
+        const cart = session.cart;
+        if (!cart.length)
           await sendText(from, "Cart is empty. Type *menu* to browse.");
-        } else {
-          let msg = "Your Cart:\n";
-          cart.forEach((it, idx) => {
-            msg += `${idx + 1}. ${it.name} x${it.qty} - ₹${it.price * it.qty}\n`;
-          });
+        else {
+          let msg = "🛒 *Your Cart*\n\n";
+          cart.forEach(
+            (it, idx) =>
+              (msg += `${idx + 1}. ${it.name} x${it.qty} — ₹${
+                it.price * it.qty
+              }\n`)
+          );
           msg += `\nType *checkout* to place order.`;
           await sendText(from, msg);
         }
         return res.sendStatus(200);
       }
 
+      /** ==========================
+       * CHECKOUT
+       * ==========================*/
       if (text === "checkout") {
-        const cart = session.cart || [];
-        if (!cart.length) {
+        if (!session.cart.length) {
           await sendText(from, "Your cart is empty. Type *menu* to browse.");
           return res.sendStatus(200);
         }
 
-        // Ask for name, email, address sequentially
         session.step = "awaiting_details";
-        await sendText(from, "Great! Please share your details in this format:\nName | email@example.com | 10-digit-phone | full address");
+        await sendText(
+          from,
+          "Please send: *Name | email@example.com | phone | full address*"
+        );
         return res.sendStatus(200);
       }
 
-      // If awaiting details
+      /** ==========================
+       * USER DETAILS (Name | Email | Phone | Address)
+       * ==========================*/
       if (session.step === "awaiting_details") {
-        // Expect: Name | email | phone | address
-        const parts = message.text.body.split("|").map(p => p.trim());
+        const parts = textRaw.split("|").map((p) => p.trim());
         if (parts.length < 4) {
-          await sendText(from, "Invalid format. Please send: Name | email@example.com | 10-digit-phone | full address");
+          await sendText(
+            from,
+            "Invalid format.\nSend: *Name | email | phone | full address*"
+          );
           return res.sendStatus(200);
         }
-        const [name, email, phoneNumber, address] = parts;
-        // compute total
-        const total = (session.cart || []).reduce((s, it) => s + (it.price * (it.qty || 1)), 0);
 
-        // create orderCode
-        const orderCode = `SV-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+        const [name, email, phoneNumber, address] = parts;
+
+        const total = session.cart.reduce(
+          (s, it) => s + it.price * (it.qty || 1),
+          0
+        );
+
+        const orderCode = `SV-${crypto.randomBytes(3)
+          .toString("hex")
+          .toUpperCase()}`;
 
         const orderPayload = {
           orderCode,
@@ -194,69 +307,76 @@ export async function handleIncoming(req, res) {
           email,
           phone: phoneNumber,
           address,
-          items: session.cart.map(it => ({ name: it.name, price: it.price, qty: it.qty || 1, image: it.image })),
+          items: session.cart,
           total,
           paymentMethod: "ONLINE",
-          razorpayDetails: null,
+          createdAt: new Date(),
         };
 
-        // Save order to DB
         const created = await Order.create(orderPayload);
 
-        // Send payment instructions (Phase 1: UPI placeholder)
         const upiId = process.env.UPI_ID || "surprisevista@upi";
-        const upiQr = process.env.UPI_QR_IMAGE_URL || ""; // optional URL to QR image for quick testing
+        const qrUrl = process.env.UPI_QR_IMAGE_URL || null;
 
-        let paymentMsg = `Order *${orderCode}* created.\nTotal: ₹${total}\n\nPay using UPI ID: *${upiId}*`;
-        if (upiQr) {
-          // send image then text
-          await sendImage(from, upiQr, `Scan this QR or pay to ${upiId}`);
+        if (qrUrl) {
+          await sendImage(from, qrUrl, `Scan to pay ₹${total}`);
         }
-        paymentMsg += `\n\nAfter payment, reply with *PAID ${orderCode}* to notify us.`;
-        await sendText(from, paymentMsg);
 
-        // clear cart
+        await sendText(
+          from,
+          `🎉 Order *${orderCode}* created!\nTotal: ₹${total}\nUPI: *${upiId}*\n\nAfter payment, reply: *PAID ${orderCode}*`
+        );
+
         session.cart = [];
         session.step = "idle";
-
-        // Optionally: notify admin via email (your orderRoutes already sends emails on orders when using the frontend API; this controller only stores the order in DB)
         return res.sendStatus(200);
       }
 
-      // Payment confirmation message: "paid SV-ABC123"
+      /** ==========================
+       * PAYMENT CONFIRMATION — "PAID CODE"
+       * ==========================*/
       if (text.startsWith("paid")) {
-        const tokens = message.text.body.split(" ").map(t => t.trim());
-        const code = tokens[1];
+        const code = textRaw.split(" ")[1];
         if (!code) {
-          await sendText(from, "Please include your order code. Example: PAID SV-XXXX");
+          await sendText(from, "Send: PAID <ORDER_CODE>");
           return res.sendStatus(200);
         }
-        // Try find the order
+
         const order = await Order.findOne({ orderCode: code });
         if (!order) {
-          await sendText(from, `Order ${code} not found. Please check the code.`);
+          await sendText(from, `Order *${code}* not found.`);
           return res.sendStatus(200);
         }
-        // Mark payment received (basic)
+
         order.paymentMethod = "ONLINE";
-        order.razorpayDetails = { status: "manual-upi-paid", paidAt: new Date() };
+        order.razorpayDetails = {
+          status: "manual-upi-paid",
+          paidAt: new Date(),
+        };
         await order.save();
 
-        await sendText(from, `Thank you! Payment for order *${code}* marked as received. We will process and ship soon.`);
+        await sendText(
+          from,
+          `💚 Payment confirmed for order *${code}*.\nWe will ship it soon!`
+        );
         return res.sendStatus(200);
       }
 
-      // fallback
-      await sendButtons(from, "Hello from SurpriseVista Gifts 🎁", [
-        { id: "menu", title: "Browse Menu" },
-        { id: "view_cart", title: "View Cart" },
+      /** ==========================
+       * FALLBACK
+       * ==========================*/
+      await sendButtons(from, "How can I help you?", [
+        { id: "menu", title: "Browse" },
+        { id: "view_cart", title: "Cart" },
+        { id: "track_order", title: "Track Order" },
       ]);
+
       return res.sendStatus(200);
     }
 
     res.sendStatus(200);
   } catch (err) {
-    console.error("WhatsApp webhook error", err);
+    console.error("❌ WhatsApp webhook error:", err);
     res.sendStatus(500);
   }
 }

@@ -15,20 +15,24 @@ export default function Cart() {
   const API_BASE = "https://surprisevista-backend.onrender.com";
   const navigate = useNavigate();
 
+  /* ============================
+        LOAD CART
+  ============================ */
   useEffect(() => {
-    // Load cart and normalize each item to always use `id`
     const saved = JSON.parse(localStorage.getItem("cart") || "[]");
     const normalized = saved.map((it) => ({
       ...it,
-      id: it.id || it._id, // fallback to _id if older entries exist
+      id: it.id || it._id,
       qty: typeof it.qty === "number" ? it.qty : 1,
     }));
     setCart(normalized);
   }, []);
 
   function saveCart(newCart) {
-    // Ensure normalization before saving
-    const normalized = newCart.map((it) => ({ ...it, id: it.id || it._id }));
+    const normalized = newCart.map((it) => ({
+      ...it,
+      id: it.id || it._id,
+    }));
     setCart(normalized);
     localStorage.setItem("cart", JSON.stringify(normalized));
   }
@@ -46,6 +50,9 @@ export default function Cart() {
     saveCart(cart.filter((item) => (item.id || item._id) !== id));
   }
 
+  /* ============================
+        PRICE SUMMARY
+  ============================ */
   const subtotal = cart.reduce(
     (sum, p) => sum + Number(p.price || 0) * (p.qty || 1),
     0
@@ -56,11 +63,15 @@ export default function Cart() {
   function generateOrderCode() {
     const d = new Date();
     const r = Math.floor(10000 + Math.random() * 90000);
-    return `SV-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(
-      d.getDate()
-    ).padStart(2, "0")}-${r}`;
+    return `SV-${d.getFullYear()}${String(d.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}${String(d.getDate()).padStart(2, "0")}-${r}`;
   }
 
+  /* ============================
+        PLACE ORDER
+  ============================ */
   async function placeOrder(e) {
     e.preventDefault();
 
@@ -77,14 +88,10 @@ export default function Cart() {
     setPlacing(true);
 
     try {
-      // Remove any Mongo `_id` if present, keep id as product identifier
-      const cleanItems = cart.map(({ _id, ...rest }) => {
-        // ensure id exists (some entries might have id or _id)
-        return {
-          ...rest,
-          id: rest.id || rest._id,
-        };
-      });
+      const cleanItems = cart.map(({ _id, ...rest }) => ({
+        ...rest,
+        id: rest.id || rest._id,
+      }));
 
       const orderCode = generateOrderCode();
 
@@ -103,8 +110,24 @@ export default function Cart() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Order failed");
 
+      // ⭐ SEND WHATSAPP CONFIRMATION
+      try {
+        await fetch(`${API_BASE}/api/whatsapp/send-order`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: customer.phone,
+            orderId: data.orderId,
+          }),
+        });
+      } catch (err) {
+        console.warn("WhatsApp send failed:", err.message);
+      }
+
+      // CLEANUP
       localStorage.removeItem("cart");
       navigate("/thank-you", { state: { order: data } });
+
     } catch (err) {
       console.error("Place order error:", err);
       setError("Failed to place order. Try again.");
@@ -113,6 +136,9 @@ export default function Cart() {
     }
   }
 
+  /* ============================
+        UI SECTION
+  ============================ */
   return (
     <section className="max-w-4xl mx-auto px-6 py-10">
       <h2 className="text-3xl font-heading text-sv-purple mb-6">Your Cart</h2>
@@ -123,7 +149,7 @@ export default function Cart() {
         <>
           {cart.map((item) => (
             <div
-              key={item.id || item._id}
+              key={item.id}
               className="bg-white p-4 rounded-lg shadow flex justify-between items-center mb-4"
             >
               <div className="flex items-center gap-4">
@@ -133,12 +159,12 @@ export default function Cart() {
                   alt={item.name}
                 />
                 <div>
-                  <h3>{item.name}</h3>
-                  <p className="text-sv-orange">₹{item.price}</p>
+                  <h3 className="font-semibold">{item.name}</h3>
+                  <p className="text-sv-orange font-medium">₹{item.price}</p>
 
                   <div className="flex gap-2 mt-2">
                     <button
-                      onClick={() => updateQty(item.id || item._id, "-")}
+                      onClick={() => updateQty(item.id, "-")}
                       className="border px-3 py-1"
                     >
                       -
@@ -147,7 +173,7 @@ export default function Cart() {
                       {item.qty}
                     </span>
                     <button
-                      onClick={() => updateQty(item.id || item._id, "+")}
+                      onClick={() => updateQty(item.id, "+")}
                       className="border px-3 py-1"
                     >
                       +
@@ -157,7 +183,7 @@ export default function Cart() {
               </div>
 
               <button
-                onClick={() => removeItem(item.id || item._id)}
+                onClick={() => removeItem(item.id)}
                 className="text-sm border px-4 py-2"
               >
                 Remove
@@ -197,6 +223,7 @@ export default function Cart() {
             <input
               className="w-full border p-2 rounded"
               placeholder="Phone Number"
+              required
               onChange={(e) =>
                 setCustomer({ ...customer, phone: e.target.value })
               }
