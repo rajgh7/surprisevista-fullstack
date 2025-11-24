@@ -19,7 +19,7 @@ router.post("/send-order", async (req, res) => {
       .map((i) => `${i.name} x${i.qty} — ₹${i.price}`)
       .join(", ");
 
-      await sendTemplate(to, "order_confirmation", [
+      await sendTemplate(to, "order_update", [
   {
     type: "body",
     parameters: [
