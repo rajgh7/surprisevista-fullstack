@@ -1,47 +1,25 @@
 // server/services/whatsappService.js
 import fetch from "node-fetch";
 
-/* ============================================================
-   CONFIGURATION
-============================================================ */
-
-const API_VERSION = "v22.0"; // 💡 use latest working version from Meta dashboard
+const API_VERSION = "v22.0";
 
 function getApiUrl() {
   const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-
-  if (!phoneId) {
-    console.error("❌ Missing WHATSAPP_PHONE_NUMBER_ID in environment.");
-    throw new Error("Missing WHATSAPP_PHONE_NUMBER_ID");
-  }
-
-  // Full WhatsApp API URL
-  const url = `https://graph.facebook.com/${API_VERSION}/${phoneId}/messages`;
-  return url;
+  if (!phoneId) throw new Error("Missing WHATSAPP_PHONE_NUMBER_ID");
+  return `https://graph.facebook.com/${API_VERSION}/${phoneId}/messages`;
 }
 
 function normalizePhoneNumber(to) {
   if (!to) return to;
-  return to.replace(/\+/g, "").trim(); // remove + sign
+  let phone = to.replace(/\D/g, "");
+  if (!phone.startsWith("91")) phone = "91" + phone;
+  return phone;
 }
 
 const TOKEN = process.env.WHATSAPP_TOKEN;
 
-/* ============================================================
-   GENERIC API POST HANDLER
-============================================================ */
-
 async function apiPost(payload) {
   const url = getApiUrl();
-
-  if (!TOKEN) {
-    console.error("❌ Missing WHATSAPP_TOKEN in .env");
-    throw new Error("Missing WHATSAPP_TOKEN");
-  }
-
-  // Debug for Render
-  console.log("🌐 WhatsApp API URL:", url);
-  console.log("📤 Sending Payload:", JSON.stringify(payload));
 
   const res = await fetch(url, {
     method: "POST",
@@ -64,12 +42,26 @@ async function apiPost(payload) {
 }
 
 /* ============================================================
-   TEXT MESSAGE
+   SEND TEMPLATE MESSAGE
 ============================================================ */
-
-export async function sendText(to, message) {
+export async function sendTemplate(to, templateName, components = []) {
   const phone = normalizePhoneNumber(to);
 
+  return apiPost({
+    messaging_product: "whatsapp",
+    to: phone,
+    type: "template",
+    template: {
+      name: templateName,
+      language: { code: "en_US" },
+      components,
+    },
+  });
+}
+
+/* Text message (NOT used anymore but kept for chatbot) */
+export async function sendText(to, message) {
+  const phone = normalizePhoneNumber(to);
   return apiPost({
     messaging_product: "whatsapp",
     to: phone,
@@ -78,31 +70,18 @@ export async function sendText(to, message) {
   });
 }
 
-/* ============================================================
-   IMAGE MESSAGE
-============================================================ */
-
 export async function sendImage(to, imageUrl, caption = "") {
   const phone = normalizePhoneNumber(to);
-
   return apiPost({
     messaging_product: "whatsapp",
     to: phone,
     type: "image",
-    image: {
-      link: imageUrl,
-      caption,
-    },
+    image: { link: imageUrl, caption },
   });
 }
 
-/* ============================================================
-   BUTTON MESSAGE
-============================================================ */
-
 export async function sendButtons(to, bodyText, buttons = []) {
   const phone = normalizePhoneNumber(to);
-
   return apiPost({
     messaging_product: "whatsapp",
     to: phone,
@@ -120,23 +99,8 @@ export async function sendButtons(to, bodyText, buttons = []) {
   });
 }
 
-/* ============================================================
-   INTERACTIVE LIST MESSAGE
-============================================================ */
-
 export async function sendInteractiveList(to, headerText, bodyText, rows = []) {
   const phone = normalizePhoneNumber(to);
-
-  const sections = [
-    {
-      title: headerText,
-      rows: rows.map((r) => ({
-        id: r.id,
-        title: r.title,
-        description: r.description || "",
-      })),
-    },
-  ];
 
   return apiPost({
     messaging_product: "whatsapp",
@@ -146,10 +110,7 @@ export async function sendInteractiveList(to, headerText, bodyText, rows = []) {
       type: "list",
       header: { type: "text", text: headerText },
       body: { text: bodyText },
-      action: {
-        button: "View Options",
-        sections,
-      },
+      action: { button: "View Options", sections: [{ title: headerText, rows }] },
     },
   });
 }

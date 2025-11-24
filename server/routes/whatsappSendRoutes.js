@@ -1,12 +1,9 @@
 import express from "express";
 import Order from "../models/Order.js";
-import { sendText } from "../services/whatsappService.js";
+import { sendTemplate } from "../services/whatsappService.js";
 
 const router = express.Router();
 
-/**
- * Sends WhatsApp confirmation message AFTER order is created
- */
 router.post("/send-order", async (req, res) => {
   try {
     const { to, orderId } = req.body;
@@ -17,23 +14,20 @@ router.post("/send-order", async (req, res) => {
     const order = await Order.findById(orderId);
     if (!order) return res.status(404).json({ error: "Order not found" });
 
+    // Build template parameters
     const itemsText = order.items
-      .map((i) => `• ${i.name} x${i.qty} — ₹${i.price}`)
-      .join("\n");
+      .map((i) => `${i.name} x${i.qty} — ₹${i.price}`)
+      .join(", ");
 
-    const message = `🎁 *Thank you for your order!*  
-🧾 *Order ID:* ${order.orderCode}
+      await sendTemplate(to, "order_confirmation", [
+  {
+    type: "body",
+    parameters: [
+      { type: "text", text: order.orderCode }
+    ]
+  }
+]);
 
-${itemsText}
-
-💰 *Total:* ₹${order.total}
-
-📍 *Delivery Address:*  
-${order.address}
-
-We will contact you shortly 😊`;
-
-    await sendText(to, message);
 
     res.json({ success: true });
   } catch (err) {
