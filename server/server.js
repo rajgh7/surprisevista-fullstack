@@ -113,7 +113,6 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/blogs", blogRoutes);
 
-app.use("/webhook/whatsapp", whatsappRoutes); // Meta webhook
 app.use("/api/whatsapp", whatsappSendRoutes); // ⭐ our sending API
 
 // Health check
