@@ -7,7 +7,7 @@ import path from "path";
 import express from "express";
 import mongoose from "mongoose";
 
-import whatsappRoutes from "./routes/whatsappRoutes.js"; // Meta webhook
+//import whatsappRoutes from "./routes/whatsappRoutes.js"; // this file deleted Meta webhook
 import productRoutes from "./routes/productRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
