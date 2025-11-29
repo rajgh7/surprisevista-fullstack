@@ -1,4 +1,3 @@
-// backend/services/geminiClient.js
 import dotenv from "dotenv";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -10,13 +9,16 @@ if (!apiKey) {
   console.error("❌ Missing GEMINI_API_KEY in environment!");
 }
 
-const genAI = new GoogleGenerativeAI(apiKey);
+// Force SDK to use v1 instead of v1beta
+const genAI = new GoogleGenerativeAI(apiKey, {
+  baseUrl: "https://generativelanguage.googleapis.com/v1"
+});
 
 export async function generateFromGemini(prompt, options = {}) {
   try {
-    const model = genAI.getGenerativeModel({
-      model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
-    });
+    const modelName = process.env.GEMINI_MODEL || "models/gemini-1.5-flash";
+
+    const model = genAI.getGenerativeModel({ model: modelName });
 
     const result = await model.generateContent({
       contents: [
@@ -31,8 +33,8 @@ export async function generateFromGemini(prompt, options = {}) {
       },
     });
 
-    const responseText = result.response.text();
-    return responseText;
+    return result.response.text();
+
   } catch (err) {
     console.error("Gemini API Error:", err);
     throw err;
