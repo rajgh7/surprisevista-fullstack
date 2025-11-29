@@ -7,7 +7,7 @@ dotenv.config();
 const apiKey = process.env.GEMINI_API_KEY;
 
 if (!apiKey) {
-  console.error("❌ Missing GEMINI_API_KEY in environment!");
+  console.error("❌ Missing GEMINI_API_KEY!");
 }
 
 const genAI = new GoogleGenerativeAI(apiKey, {
@@ -17,19 +17,19 @@ const genAI = new GoogleGenerativeAI(apiKey, {
 export async function generateFromGemini(prompt, options = {}) {
   try {
     const model = genAI.getGenerativeModel({
-      model: "models/gemini-1.5-flash",
+      model: "models/gemini-1.5-flash"
     });
 
     const result = await model.generateContent({
       contents: [
         {
           role: "user",
-          parts: [{ text: prompt }],
+          parts: [{ text: prompt }]
         }
       ],
       generationConfig: {
-        maxOutputTokens: options.max_tokens || 300,
-        temperature: options.temperature || 0.2,
+        maxOutputTokens: 500,
+        temperature: 0.2
       }
     });
 
