@@ -10,7 +10,6 @@ if (!apiKey) {
   console.error("❌ Missing GEMINI_API_KEY in environment!");
 }
 
-// Force SDK to use Gemini v1 endpoint
 const genAI = new GoogleGenerativeAI(apiKey, {
   apiEndpoint: "https://generativelanguage.googleapis.com/v1"
 });
@@ -18,7 +17,7 @@ const genAI = new GoogleGenerativeAI(apiKey, {
 export async function generateFromGemini(prompt, options = {}) {
   try {
     const model = genAI.getGenerativeModel({
-      model: "models/gemini-1.5-flash",  // FULL PATH REQUIRED
+      model: "models/gemini-1.5-flash",
     });
 
     const result = await model.generateContent({
