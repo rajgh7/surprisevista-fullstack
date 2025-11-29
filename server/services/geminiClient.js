@@ -5,7 +5,16 @@ import fetch from "node-fetch";
 dotenv.config();
 
 const apiKey = process.env.GEMINI_API_KEY;
-const API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=" + apiKey;
+
+// Free-tier model (works for all free API keys)
+const MODEL = "models/gemini-pro";
+
+// Endpoint for free tier
+const API_URL =
+  "https://generativelanguage.googleapis.com/v1beta/" +
+  MODEL +
+  ":generateContent?key=" +
+  apiKey;
 
 export async function generateFromGemini(prompt) {
   try {
@@ -13,15 +22,15 @@ export async function generateFromGemini(prompt) {
       contents: [
         {
           role: "user",
-          parts: [{ text: prompt }]
-        }
-      ]
+          parts: [{ text: prompt }],
+        },
+      ],
     };
 
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
     });
 
     const data = await res.json();
@@ -31,12 +40,11 @@ export async function generateFromGemini(prompt) {
       throw new Error(data.error?.message || "Gemini request failed");
     }
 
-    // Extract text safely
-    return (
+    const text =
       data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "No response from Gemini."
-    );
+      "No reply from Gemini.";
 
+    return text;
   } catch (err) {
     console.error("Gemini API Error:", err);
     throw err;
