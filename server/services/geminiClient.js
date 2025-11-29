@@ -10,12 +10,15 @@ if (!apiKey) {
   console.error("❌ Missing GEMINI_API_KEY in environment!");
 }
 
-const genAI = new GoogleGenerativeAI(apiKey);
+// Force SDK to use Gemini v1 endpoint
+const genAI = new GoogleGenerativeAI(apiKey, {
+  apiEndpoint: "https://generativelanguage.googleapis.com/v1"
+});
 
 export async function generateFromGemini(prompt, options = {}) {
   try {
     const model = genAI.getGenerativeModel({
-      model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
+      model: "models/gemini-1.5-flash",  // FULL PATH REQUIRED
     });
 
     const result = await model.generateContent({
@@ -23,16 +26,16 @@ export async function generateFromGemini(prompt, options = {}) {
         {
           role: "user",
           parts: [{ text: prompt }],
-        },
+        }
       ],
       generationConfig: {
         maxOutputTokens: options.max_tokens || 300,
         temperature: options.temperature || 0.2,
-      },
+      }
     });
 
-    const responseText = result.response.text();
-    return responseText;
+    return result.response.text();
+
   } catch (err) {
     console.error("Gemini API Error:", err);
     throw err;
