@@ -1,6 +1,13 @@
 // src/App.jsx
 import React from "react";
-import { HashRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import {
+  HashRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useLocation
+} from "react-router-dom";
+
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Products from "./pages/Products";
@@ -15,7 +22,8 @@ import Tags from "./pages/Tags";
 import TagPosts from "./pages/TagPosts";
 import ThankYou from "./pages/ThankYou";
 
-
+// >>> NEW IMPORT <<<
+import ChatbotWidget from "./components/ChatbotWidget";
 
 // Protect admin route
 function PrivateRoute({ children }) {
@@ -27,6 +35,7 @@ function PrivateRoute({ children }) {
 function Layout({ children }) {
   const location = useLocation();
   const hideNavbar = location.pathname === "/admin-login";
+
   return (
     <>
       {!hideNavbar && <Navbar />}
@@ -44,8 +53,23 @@ export default function App() {
           <Route path="/tags" element={<Tags />} />
           <Route path="/tags/:tag" element={<TagPosts />} />
           <Route path="/blog/:slug" element={<Post />} />
-          <Route path="/admin/blogs" element={<PrivateRoute><AdminBlogEditor /></PrivateRoute>} />
-          <Route path="/admin/blogs/edit/:id" element={<PrivateRoute><AdminBlogEditor /></PrivateRoute>} />
+          <Route
+            path="/admin/blogs"
+            element={
+              <PrivateRoute>
+                <AdminBlogEditor />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin/blogs/edit/:id"
+            element={
+              <PrivateRoute>
+                <AdminBlogEditor />
+              </PrivateRoute>
+            }
+          />
+
           <Route path="/" element={<Home />} />
           <Route path="/products" element={<Products />} />
           <Route path="/contact" element={<Contact />} />
@@ -61,14 +85,21 @@ export default function App() {
               </PrivateRoute>
             }
           />
-<Route path="/admin/blogs/edit/:id" element={
-  <PrivateRoute>
-    <AdminBlogEditor />
-  </PrivateRoute>
-}/>
 
+          {/* You had a duplicate earlier — cleaned & kept only one */}
+          <Route
+            path="/admin/blogs/edit/:id"
+            element={
+              <PrivateRoute>
+                <AdminBlogEditor />
+              </PrivateRoute>
+            }
+          />
         </Routes>
       </Layout>
+
+      {/* >>> NEW CHATBOT WIDGET <<< */}
+      <ChatbotWidget />
 
       <footer className="bg-gray-100 text-center py-4 text-sm text-gray-600 border-t">
         © {new Date().getFullYear()} SurpriseVista. All rights reserved.
