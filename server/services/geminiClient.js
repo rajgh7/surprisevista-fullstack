@@ -1,3 +1,4 @@
+// backend/services/geminiClient.js
 import dotenv from "dotenv";
 import fetch from "node-fetch";
 
@@ -5,17 +6,16 @@ dotenv.config();
 
 const apiKey = process.env.GEMINI_API_KEY;
 
-const MODEL = "models/gemini-pro";   // Free-tier stable model
+// Your supported model (from listModels)
+const MODEL = "models/gemini-2.5-flash";
 
+// Correct endpoint for new Gemini API (v1)
 const API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/" +
-  MODEL +
-  ":generateContent?key=" +
-  apiKey;
+  `https://generativelanguage.googleapis.com/v1/${MODEL}:generateContent?key=${apiKey}`;
 
 export async function generateFromGemini(prompt) {
   try {
-    const body = {
+    const payload = {
       contents: [
         {
           role: "user",
@@ -24,26 +24,27 @@ export async function generateFromGemini(prompt) {
       ],
     };
 
-    const res = await fetch(API_URL, {
+    const response = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     });
 
-    const data = await res.json();
+    const data = await response.json();
 
-    if (!res.ok) {
-      console.error("Gemini Error:", data);
-      throw new Error(data.error?.message || "Request failed");
+    if (!response.ok) {
+      console.error("Gemini API Error Response:", data);
+      throw new Error(data.error?.message || "Gemini request failed");
     }
 
-    return (
+    const text =
       data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "No response from Gemini."
-    );
+      "No response from Gemini.";
 
-  } catch (err) {
-    console.error("Gemini API Error:", err);
-    throw err;
+    return text;
+
+  } catch (error) {
+    console.error("Gemini API Error:", error);
+    throw error;
   }
 }
