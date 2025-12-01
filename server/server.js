@@ -16,6 +16,11 @@ import Blog from "./models/Blog.js";
 import blogRoutes from "./routes/blogRoutes.js";
 import chatbotRoute from "./routes/chatbot.js";
 import testModels from "./routes/testModels.js";
+import chatbotRoute from "./routes/chatbot.js";
+import cartApi from "./routes/cartApi.js";
+import adminAi from "./routes/adminAi.js";
+
+
 
 
 const app = express();
@@ -116,6 +121,9 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/blogs", blogRoutes);
 app.use("/api/chatbot", chatbotRoute);  
 app.use("/api", testModels);
+app.use("/api/chatbot", chatbotRoute);
+app.use("/api/cart", cartApi);
+app.use("/api/admin", adminAi);
 
 // Health check
 app.get("/", (req, res) => {
