@@ -15,6 +15,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import Blog from "./models/Blog.js";
 import blogRoutes from "./routes/blogRoutes.js";
 import chatbotRoute from "./routes/chatbot.js";
+import testModels from "./routes/testModels.js";
 
 
 const app = express();
@@ -114,6 +115,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/blogs", blogRoutes);
 app.use("/api/chatbot", chatbotRoute);  
+app.use("/api", testModels);
 
 // Health check
 app.get("/", (req, res) => {
