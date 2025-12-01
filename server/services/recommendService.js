@@ -1,68 +1,49 @@
 // server/services/recommendService.js
 import Product from "../models/Product.js";
 
-/**
- * Basic intent -> filter extractor
- * Input: free text (e.g. "gift under 600 for 8 year old boy romantic")
- * Output: { keywords, minPrice, maxPrice, age, gender, occasion, theme }
- */
 export function parseShoppingIntent(text) {
-  const lower = (text||"").toLowerCase();
-  const out = { keywords: [], minPrice: 0, maxPrice: Number.POSITIVE_INFINITY, age: null, gender: null, occasion: null, theme: null };
+  const t = text.toLowerCase();
+  const out = { keywords: [], minPrice: 0, maxPrice: 999999, age: null, gender: null, theme: null };
 
-  // price
-  const priceMatch = lower.match(/under\s*₹?(\d{2,6})|under\s*(\d{2,6})|below\s*₹?(\d{2,6})/);
-  if (priceMatch) out.maxPrice = Number(priceMatch[1]||priceMatch[2]||priceMatch[3]);
+  const price = t.match(/under\s*(\d+)/);
+  if (price) out.maxPrice = Number(price[1]);
 
-  const betweenMatch = lower.match(/between\s*₹?(\d{2,6})\s*(and|-)\s*₹?(\d{2,6})/);
-  if (betweenMatch) { out.minPrice = Number(betweenMatch[1]); out.maxPrice = Number(betweenMatch[3]); }
-
-  // age
-  const ageMatch = lower.match(/(\b\d{1,2})\s*(year|yr|yrs|yo|old)/);
-  if (ageMatch) out.age = Number(ageMatch[1]);
-
-  // gender
-  if (/\b(boy|male|man|husband|dad|father)\b/.test(lower)) out.gender = "male";
-  if (/\b(girl|female|woman|wife|mom|mother)\b/.test(lower)) out.gender = "female";
-
-  // occasion
-  if (/\b(birthday|anniversary|engagement|wedding|valentine|valentines|christmas|new year|diwali|festival)\b/.test(lower)) {
-    out.occasion = lower.match(/\b(birthday|anniversary|engagement|wedding|valentine|valentines|christmas|diwali|festival)\b/)[0];
+  const between = t.match(/between\s*(\d+)\s*and\s*(\d+)/);
+  if (between) {
+    out.minPrice = Number(between[1]);
+    out.maxPrice = Number(between[2]);
   }
 
-  // theme: keywords like superhero, romantic, floral, personalized
-  const themeMatch = lower.match(/\b(superhero|romantic|floral|personalized|cute|funny|edible|luxury|budget|eco|handmade|social)\b/);
-  if (themeMatch) out.theme = themeMatch[0];
+  const age = t.match(/(\d{1,2})\s*(year|yo|old)/);
+  if (age) out.age = Number(age[1]);
 
-  // remaining keywords
-  out.keywords = lower.split(/\s+/).filter(w => w.length>2).slice(0,8);
+  if (/\b(boy|male|man|husband|dad)\b/.test(t)) out.gender = "male";
+  if (/\b(girl|female|woman|wife|mom)\b/.test(t)) out.gender = "female";
+
+  const theme = t.match(/\b(cute|romantic|funny|personalized|superhero|floral)\b/);
+  if (theme) out.theme = theme[0];
+
+  out.keywords = t.split(/\s+/).filter((w) => w.length > 2).slice(0, 10);
 
   return out;
 }
 
-/**
- * Run a DB search with the intent filters (simple hybrid)
- */
-export async function searchProductsByIntent(intent, limit=8) {
-  const q = intent.keywords.join(" ");
-  const filters = {
-    price: { $gte: intent.minPrice || 0, $lte: intent.maxPrice || Number.POSITIVE_INFINITY }
-  };
-
-  // Build mongo query
+export async function searchProductsByIntent(intent, limit = 8) {
   const or = [];
-  if (q) {
-    or.push({ title: { $regex: q, $options: 'i' } });
-    or.push({ description: { $regex: q, $options: 'i' } });
-    or.push({ tags: { $in: intent.keywords } });
+
+  if (intent.keywords.length) {
+    or.push({ title: { $regex: intent.keywords.join("|"), $options: "i" } });
+    or.push({ description: { $regex: intent.keywords.join("|"), $options: "i" } });
   }
-  if (intent.theme) or.push({ tags: intent.theme });
 
-  if (intent.age) or.push({ tags: { $in: [`age:${intent.age}`, `kids`] } });
+  if (intent.theme) {
+    or.push({ tags: { $in: [intent.theme] } });
+  }
 
-  // Final query
-  const query = or.length ? { $and: [ { $or: or }, { price: filters.price } ] } : { price: filters.price };
-
-  const products = await Product.find(query).limit(limit).lean();
-  return products;
+  return Product.find({
+    price: { $gte: intent.minPrice, $lte: intent.maxPrice },
+    ...(or.length ? { $or: or } : {})
+  })
+    .limit(limit)
+    .lean();
 }

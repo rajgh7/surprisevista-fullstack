@@ -7,30 +7,31 @@ import path from "path";
 import express from "express";
 import mongoose from "mongoose";
 
-
+// ROUTES (existing)
 import productRoutes from "./routes/productRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
-import Blog from "./models/Blog.js";
 import blogRoutes from "./routes/blogRoutes.js";
+
+// NEW AI ROUTES
 import chatbotRoute from "./routes/chatbot.js";
 import testModels from "./routes/testModels.js";
-import chatbotRoute from "./routes/chatbot.js";
 import cartApi from "./routes/cartApi.js";
 import adminAi from "./routes/adminAi.js";
 
-
-
+import Blog from "./models/Blog.js";
 
 const app = express();
 
-// Serve uploads folder
+/* ============================================================
+   STATIC - UPLOADS
+============================================================ */
 app.use("/uploads", express.static(path.join(process.cwd(), "server", "uploads")));
 
 /* ============================================================
-   🌐 CORS CONFIG
-============================================================= */
+   CORS CONFIG
+============================================================ */
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
@@ -64,84 +65,14 @@ app.use((req, res, next) => {
 });
 
 /* ============================================================
-   🧩 JSON / URL Parsing
-============================================================= */
+   JSON PARSING
+============================================================ */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* ============================================================
-   🧩 MongoDB Connection
-============================================================= */
+   MONGODB CONNECT
+============================================================ */
 mongoose
   .connect(process.env.MONGO_URI, {
-    dbName: "surprisevista",
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
-
-/* ============================================================
-   🧩 SITEMAP ROUTE
-============================================================= */
-app.get("/sitemap.xml", async (req, res) => {
-  try {
-    const posts = await Blog.find({ published: true }).sort({ publishedAt: -1 }).select("slug publishedAt updatedAt");
-    const baseUrl = process.env.BASE_URL;
-
-    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
-    xml += `<url><loc>${baseUrl}</loc><changefreq>daily</changefreq><priority>1.0</priority></url>\n`;
-
-    posts.forEach((p) => {
-      xml += `<url>
-                <loc>${baseUrl}/blog/${p.slug}</loc>
-                <lastmod>${(p.updatedAt || p.publishedAt).toISOString()}</lastmod>
-                <changefreq>weekly</changefreq>
-                <priority>0.7</priority>
-              </url>\n`;
-    });
-
-    xml += `</urlset>`;
-    res.header("Content-Type", "application/xml");
-    res.send(xml);
-  } catch (err) {
-    console.error("sitemap error:", err);
-    res.status(500).send("Sitemap error");
-  }
-});
-
-/* ============================================================
-   🧩 MAIN ROUTES
-============================================================= */
-app.use("/api/products", productRoutes);
-app.use("/api/contact", contactRoutes);
-app.use("/api/orders", orderRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/blogs", blogRoutes);
-app.use("/api/chatbot", chatbotRoute);  
-app.use("/api", testModels);
-app.use("/api/chatbot", chatbotRoute);
-app.use("/api/cart", cartApi);
-app.use("/api/admin", adminAi);
-
-// Health check
-app.get("/", (req, res) => {
-  res.send("🚀 SurpriseVista Backend Running");
-});
-
-/* ============================================================
-   🧩 ERROR HANDLER
-============================================================= */
-app.use((err, req, res, next) => {
-  console.error("❌ Server Error:", err);
-  res.status(500).json({ error: "Internal Server Error" });
-});
-
-/* ============================================================
-   🚀 START SERVER
-============================================================= */
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () =>
-  console.log(`🚀 Server running on port ${PORT}`)
-);
+    dbName: "surprisevis
