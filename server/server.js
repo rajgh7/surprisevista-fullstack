@@ -75,4 +75,5 @@ app.use(express.urlencoded({ extended: true }));
 ============================================================ */
 mongoose
   .connect(process.env.MONGO_URI, {
-    dbName: "surprisevis
+    dbName: "surprisevista",
+
