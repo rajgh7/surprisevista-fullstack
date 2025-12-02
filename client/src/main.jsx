@@ -9,3 +9,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <App />
   </React.StrictMode>
 );
+
+import { CartProvider } from "./context/CartContext";
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <CartProvider>
+    <App />
+  </CartProvider>
+);

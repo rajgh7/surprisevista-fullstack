@@ -12,6 +12,17 @@
 .btn-primary { @apply bg-sv-orange text-white hover:bg-orange-600; }
 .btn-outline { @apply border border-sv-orange text-sv-orange hover:bg-orange-50; }
 
+/* Chat bubble fade & slide */
+@keyframes bubbleIn {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.chat-bubble {
+  animation: bubbleIn 0.25s ease-out;
+}
+
+
 /* Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
