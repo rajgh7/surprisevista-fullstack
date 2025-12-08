@@ -1,11 +1,11 @@
 // server/server.js
 import dotenv from "dotenv";
 dotenv.config();
-console.log("DEBUG:", "RESEND_API_KEY =", process.env.RESEND_API_KEY);
 
 import path from "path";
 import express from "express";
 import mongoose from "mongoose";
+import cors from "cors";
 
 // Existing routes
 import productRoutes from "./routes/productRoutes.js";
@@ -25,56 +25,45 @@ import Blog from "./models/Blog.js";
 const app = express();
 
 /* ============================================================
-   STATIC FILES
-============================================================ */
-app.use(
-  "/uploads",
-  express.static(path.join(process.cwd(), "server", "uploads"))
-);
-
-/* ============================================================
-   CORS CONFIG
+   CORS FIX — FULL SUPPORT FOR VERCEL DEPLOYMENT
 ============================================================ */
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
-  "https://rajgh7.github.io",
-  "https://rajgh7.github.io/surprisevista-fullstack",
-  process.env.FRONTEND_URL,
+  "https://surprisevista-fullstack.vercel.app",   // ✅ your frontend domain
+  process.env.FRONTEND_URL                        // optional
 ].filter(Boolean);
 
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  const allowed =
-    !origin ||
-    allowedOrigins.includes(origin) ||
-    origin.startsWith("https://rajgh7.github.io");
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn("❌ CORS BLOCKED:", origin);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Accept"]
+}));
 
-  if (allowed) {
-    res.header("Access-Control-Allow-Origin", origin || "*");
-  } else {
-    console.warn("CORS BLOCKED:", origin);
-  }
-
-  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-  res.header("Access-Control-Allow-Credentials", "true");
-
-  if (req.method === "OPTIONS") return res.sendStatus(200);
-  next();
-});
+// Fix preflight issues
+app.options("*", cors());
 
 /* ============================================================
-   PARSERS
+   STATIC FILES
+============================================================ */
+app.use("/uploads", express.static(path.join(process.cwd(), "server", "uploads")));
+
+/* ============================================================
+   BODY PARSERS
 ============================================================ */
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 /* ============================================================
-   MONGO CONNECT
+   MONGO DATABASE
 ============================================================ */
 mongoose
   .connect(process.env.MONGO_URI, {
@@ -133,7 +122,7 @@ app.use("/api/blogs", blogRoutes);
 app.use("/api/chatbot", chatbotRoute);
 app.use("/api/cart", cartApi);
 app.use("/api/admin/ai", adminAi);
-app.use("/api", testModels); // /api/listmodels
+app.use("/api", testModels);
 
 /* ============================================================
    ROOT CHECK
@@ -146,12 +135,12 @@ app.get("/", (req, res) => {
    ERROR HANDLER
 ============================================================ */
 app.use((err, req, res, next) => {
-  console.error("❌ SERVER ERROR:", err);
-  res.status(500).json({ error: "Internal Server Error" });
+  console.error("❌ SERVER ERROR:", err.message);
+  res.status(500).json({ error: err.message || "Internal Server Error" });
 });
 
 /* ============================================================
-   LAUNCH SERVER
+   START SERVER
 ============================================================ */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
