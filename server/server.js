@@ -30,26 +30,32 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
-  "https://surprisevista-fullstack.vercel.app",   // ✅ your frontend domain
-  process.env.FRONTEND_URL                        // optional
+  "https://surprisevista-fullstack.vercel.app", // main production domain
+  process.env.FRONTEND_URL
 ].filter(Boolean);
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.warn("❌ CORS BLOCKED:", origin);
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Accept"]
-}));
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
 
-// Fix preflight issues
-app.options("*", cors());
+  // Allow Vercel preview deployments automatically
+  const isVercelPreview =
+    origin && origin.endsWith(".vercel.app");
+
+  if (!origin || allowedOrigins.includes(origin) || isVercelPreview) {
+    res.header("Access-Control-Allow-Origin", origin || "*");
+  } else {
+    console.warn("❌ CORS BLOCKED:", origin);
+    return res.status(403).json({ error: "Not allowed by CORS" });
+  }
+
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+  next();
+});
+
 
 /* ============================================================
    STATIC FILES
