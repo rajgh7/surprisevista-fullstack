@@ -19,6 +19,7 @@ import chatbotRoute from "./routes/chatbot.js";
 import cartApi from "./routes/cartApi.js";
 import adminAi from "./routes/adminAi.js";
 import testModels from "./routes/testModels.js";
+import uploadRoutes from "./routes/uploadRoutes.js";
 
 import Blog from "./models/Blog.js";
 
@@ -129,6 +130,8 @@ app.use("/api/chatbot", chatbotRoute);
 app.use("/api/cart", cartApi);
 app.use("/api/admin/ai", adminAi);
 app.use("/api", testModels);
+app.use("/api/upload", uploadRoutes);
+
 
 /* ============================================================
    ROOT CHECK

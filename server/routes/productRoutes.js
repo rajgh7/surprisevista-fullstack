@@ -67,13 +67,15 @@ router.get("/", async (req, res) => {
 ===================================================== */
 router.post("/", verifyToken, async (req, res) => {
   try {
-    const { mrp = 0, discount = 0, price, ...rest } = req.body;
     const product = new Product({
-      ...rest,
-      mrp,
-      discount,
-      price: computePrice(mrp, discount, price),
-    });
+  ...rest,
+  mrp,
+  discount,
+  price: computePrice(mrp, discount, price),
+  image: rest.image,     // already a CDN URL
+  gallery: rest.gallery || []
+});
+
     await product.save();
     res.status(201).json(product);
   } catch (err) {

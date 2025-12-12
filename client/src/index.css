@@ -1,47 +1,166 @@
-/* src/index.css (append or replace existing) */
+/* -----------------------------------------------------------
+   TAILWIND LAYERS
+----------------------------------------------------------- */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* -----------------------------------------------------------
+   GLOBAL BRAND TOKENS
+----------------------------------------------------------- */
+:root {
+  --sv-purple: #6B21A8;
+  --sv-orange: #FF6F3C;
+  --sv-pink: #FFD7E2;
+  --sv-slate: #0f172a;
+
+  --shadow-soft: 0 8px 24px rgba(16, 24, 40, 0.06);
+  --shadow-medium: 0 12px 32px rgba(16, 24, 40, 0.08);
+  --shadow-strong: 0 20px 50px rgba(16, 24, 40, 0.12);
+}
+
+/* -----------------------------------------------------------
+   BASE STYLES
+----------------------------------------------------------- */
 @layer base {
-  body { @apply bg-gradient-to-b from-pink-50 via-yellow-50 to-white text-gray-800 font-body; }
-  h1, h2, h3 { @apply font-heading text-sv-purple; }
+  body {
+    @apply bg-gradient-to-b from-pink-100 to-white text-gray-900 font-body;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5 {
+    @apply font-heading text-sv-purple;
+  }
+
+  a {
+    @apply transition-colors hover:text-sv-orange;
+  }
+
+  /* Accessible focus ring */
+  :focus {
+    outline: 3px solid rgba(107, 33, 168, 0.3);
+    outline-offset: 4px;
+  }
 }
 
-/* Button styles */
-.btn { @apply px-3 py-1 rounded shadow transition text-sm; }
-.btn-primary { @apply bg-sv-orange text-white hover:bg-orange-600; }
-.btn-outline { @apply border border-sv-orange text-sv-orange hover:bg-orange-50; }
+/* -----------------------------------------------------------
+   COMPONENTS
+----------------------------------------------------------- */
+@layer components {
 
-/* typing dots */
-.typing-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 9999px;
-  background: #cbd5e1;
-  animation: bounce 1s infinite;
+  /* Cards */
+  .card {
+    @apply bg-white rounded-lg shadow;
+    box-shadow: var(--shadow-soft);
+  }
+
+  .card-hover {
+    transition: all 0.25s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: var(--shadow-strong);
+  }
+
+  /* Buttons */
+  .btn {
+    @apply px-4 py-2 rounded-md font-medium inline-flex items-center justify-center;
+  }
+
+  .btn-primary {
+    @apply bg-sv-orange text-white;
+    transition: all 0.25s ease;
+  }
+  .btn-primary:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: var(--shadow-strong);
+  }
+
+  /* Toast */
+  .toast {
+    @apply fixed bottom-6 right-6 px-4 py-2 rounded-md text-white shadow-lg;
+    background: var(--sv-purple);
+    animation: fadeInUp 0.3s ease-out;
+  }
+
+  /* Chat bubble */
+  .chat-bubble {
+    @apply p-3 rounded-lg shadow bg-white max-w-xs;
+  }
 }
-.typing-dot.delay-1 { animation-delay: 0.15s; }
-.typing-dot.delay-2 { animation-delay: 0.3s; }
 
-@keyframes bounce {
-  0% { transform: translateY(0); opacity: 0.5; }
-  40% { transform: translateY(-6px); opacity: 1; }
-  80% { transform: translateY(0); opacity: 0.6; }
-  100% { transform: translateY(0); opacity: 0.5; }
-}
+/* -----------------------------------------------------------
+   UTILITIES
+----------------------------------------------------------- */
 
-/* fade-in */
+/* Fade animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-.animate-fadeIn { animation: fadeIn 0.6s ease both; }
+.animate-fadeIn {
+  animation: fadeIn 0.6s ease-out both;
+}
 
-/* product carousel helper */
-.product-carousel { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; }
-.product-carousel::-webkit-scrollbar { height: 8px; }
-.product-carousel::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 8px; }
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
-/* small helpers */
-.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* Typing dots */
+.typing-dot {
+  animation: bounce 1s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50%      { transform: translateY(-6px); opacity: 1; }
+}
+
+/* Scrollbar (Premium UI) */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Line clamp utility */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Smooth page section fade */
+.section-fade {
+  animation: fadeIn 0.6s ease-in-out both;
+}
+
+/* Skeleton loader */
+.skeleton {
+  @apply rounded bg-gray-200;
+  background: linear-gradient(90deg, #ececec 25%, #f7f7f7 37%, #ececec 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* Reduced motion safety */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

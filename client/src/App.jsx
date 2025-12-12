@@ -5,77 +5,113 @@ import {
   Routes,
   Route,
   Navigate,
-  useLocation
+  useLocation,
 } from "react-router-dom";
 
-import Navbar from "./components/Navbar";
-import Home from "./pages/Home";
-import Products from "./pages/Products";
-import Contact from "./pages/Contact";
-import Cart from "./pages/Cart";
-import AdminLogin from "./pages/AdminLogin";
-import AdminDashboard from "./pages/AdminDashboard";
-import Blog from "./pages/Blog";
-import Post from "./pages/Post";
-import AdminBlogEditor from "./pages/AdminBlogEditor";
-import Tags from "./pages/Tags";
-import TagPosts from "./pages/TagPosts";
-import ThankYou from "./pages/ThankYou";
+// NAVBAR (Correct import)
+//import Navbar from "./components/NavbarMinimalblend";
 
-// >>> NEW IMPORT <<<
+//import Navbar from "./components/Navbar";
+import Navbar from "./components/NavbarMinimal";
+//import Navbar from "./components/NavbarBold";
+//import Navbar from "./components/NavbarElegant";
+//import Navbar from "./components/NavbarAdvanced";
+
+// GLOBAL COMPONENTS
+import Footer from "./components/Footer";
+import PageTransition from "./components/PageTransition";
 import ChatbotWidget from "./components/ChatbotWidget";
 
-// Protect admin route
+// PUBLIC PAGES
+import Home from "./pages/Home";
+import Products from "./pages/Products";
+import SingleProduct from "./pages/SingleProduct";
+import Contact from "./pages/Contact";
+import Cart from "./pages/Cart";
+import Blog from "./pages/Blog";
+import Post from "./pages/Post";
+import Tags from "./pages/Tags";
+import TagPosts from "./pages/TagPosts";
+import FAQ from "./pages/FAQ";
+import ThankYou from "./pages/ThankYou";
+import NotFound from "./pages/NotFound";
+
+// ADMIN PAGES
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminBlogEditor from "./pages/AdminBlogEditor";
+
+/* ------------------------------------------------------------------ */
+/*   PROTECTED ROUTE WRAPPER                                          */
+/* ------------------------------------------------------------------ */
 function PrivateRoute({ children }) {
   const token = localStorage.getItem("adminToken");
   return token ? children : <Navigate to="/admin-login" />;
 }
 
-// Layout hides Navbar on admin-login page
+/* ------------------------------------------------------------------ */
+/*   GLOBAL LAYOUT WITH NAVBAR OFFSET                                 */
+/* ------------------------------------------------------------------ */
 function Layout({ children }) {
   const location = useLocation();
-  const hideNavbar = location.pathname === "/admin-login";
+
+  // Hide navbar and footer on admin pages
+  const hideNavbar = location.pathname.startsWith("/admin");
+
+  // Your fixed navbar height offset
+  const NAVBAR_OFFSET = hideNavbar ? "0px" : "110px";
 
   return (
-    <>
+    <div
+      className="min-h-screen"
+      style={{
+        paddingTop: NAVBAR_OFFSET, // GLOBAL OFFSET FIX
+      }}
+    >
       {!hideNavbar && <Navbar />}
-      <main className="pt-20">{children}</main>
-    </>
+
+      <main>{children}</main>
+
+      {!hideNavbar && <Footer />}
+    </div>
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*   MAIN APP ROUTER                                                  */
+/* ------------------------------------------------------------------ */
 export default function App() {
   return (
     <Router>
       <Layout>
         <Routes>
-          <Route path="/blog" element={<Blog />} />
-          <Route path="/tags" element={<Tags />} />
-          <Route path="/tags/:tag" element={<TagPosts />} />
-          <Route path="/blog/:slug" element={<Post />} />
+          {/* PUBLIC ROUTES */}
           <Route
-            path="/admin/blogs"
+            path="/"
             element={
-              <PrivateRoute>
-                <AdminBlogEditor />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/blogs/edit/:id"
-            element={
-              <PrivateRoute>
-                <AdminBlogEditor />
-              </PrivateRoute>
+              <PageTransition>
+                <Home />
+              </PageTransition>
             }
           />
 
-          <Route path="/" element={<Home />} />
           <Route path="/products" element={<Products />} />
+          <Route path="/product/:id" element={<SingleProduct />} />
+
           <Route path="/contact" element={<Contact />} />
           <Route path="/cart" element={<Cart />} />
-          <Route path="/admin-login" element={<AdminLogin />} />
+
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/blog/:slug" element={<Post />} />
+
+          <Route path="/tags" element={<Tags />} />
+          <Route path="/tags/:tag" element={<TagPosts />} />
+
+          <Route path="/faq" element={<FAQ />} />
           <Route path="/thank-you" element={<ThankYou />} />
+
+          {/* ADMIN ROUTES */}
+          <Route path="/admin-login" element={<AdminLogin />} />
 
           <Route
             path="/admin"
@@ -86,7 +122,15 @@ export default function App() {
             }
           />
 
-          {/* You had a duplicate earlier — cleaned & kept only one */}
+          <Route
+            path="/admin/blogs"
+            element={
+              <PrivateRoute>
+                <AdminBlogEditor />
+              </PrivateRoute>
+            }
+          />
+
           <Route
             path="/admin/blogs/edit/:id"
             element={
@@ -95,15 +139,14 @@ export default function App() {
               </PrivateRoute>
             }
           />
+
+          {/* 404 */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Layout>
 
-      {/* >>> NEW CHATBOT WIDGET <<< */}
+      {/* Global Chatbot */}
       <ChatbotWidget />
-
-      <footer className="bg-gray-100 text-center py-4 text-sm text-gray-600 border-t">
-        © {new Date().getFullYear()} SurpriseVista. All rights reserved.
-      </footer>
     </Router>
   );
 }

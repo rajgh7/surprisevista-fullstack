@@ -1,4 +1,7 @@
+// client/src/pages/Contact.jsx
 import React, { useState } from "react";
+import { API_URL } from "../config"; // ensure this exists in your frontend config
+import { softCelebrate } from "../utils/confetti";
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -10,106 +13,90 @@ export default function Contact() {
 
   const [status, setStatus] = useState({ type: "", msg: "" });
 
-  const API_BASE = "https://surprisevista-backend.onrender.com";
-
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setStatus({ type: "loading", msg: "Sending your message..." });
+    setStatus({ type: "loading", msg: "Sending..." });
 
     try {
-      const response = await fetch(`${API_BASE}/api/contact`, {
+      const res = await fetch(`${API_URL}/api/contact`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),  // NO RECAPTCHA NOW
+        body: JSON.stringify(formData),
       });
 
-      const data = await response.json();
+      if (!res.ok) throw new Error("Failed to submit");
 
-      if (response.ok) {
-        setStatus({ type: "success", msg: "✅ Message sent successfully!" });
-        setFormData({ name: "", email: "", phone: "", message: "" });
-      } else {
-        throw new Error(data.message || "Something went wrong.");
-      }
-    } catch (error) {
-      console.error(error);
-      setStatus({
-        type: "error",
-        msg: "❌ Failed to send. Please try again later.",
-      });
+      // 🎉 SOFT CELEBRATION
+      softCelebrate();
+
+      setStatus({ type: "success", msg: "Message sent successfully!" });
+      setFormData({ name: "", email: "", phone: "", message: "" });
+    } catch (err) {
+      setStatus({ type: "error", msg: "Failed to send. Try again!" });
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-12">
-      <h1 className="text-4xl font-heading text-sv-purple mb-4">
-        Contact Us
-      </h1>
+    <div className="max-w-lg mx-auto p-6 mt-24 bg-white shadow rounded">
+      <h1 className="text-2xl font-bold mb-4">Contact Us</h1>
 
-      <form
-        onSubmit={handleSubmit}
-        className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded-lg shadow"
-      >
+      {status.msg && (
+        <div className={`p-3 mb-3 rounded ${
+          status.type === "success"
+            ? "bg-green-100 text-green-700"
+            : status.type === "error"
+            ? "bg-red-100 text-red-700"
+            : "bg-yellow-100 text-yellow-700"
+        }`}>
+          {status.msg}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-3">
         <input
-          type="text"
+          className="border p-2 w-full rounded"
           name="name"
           placeholder="Your Name"
           value={formData.name}
           onChange={handleChange}
           required
-          className="border p-3 rounded"
         />
 
         <input
-          type="email"
+          className="border p-2 w-full rounded"
           name="email"
-          placeholder="Your Email"
+          placeholder="Email"
           value={formData.email}
           onChange={handleChange}
           required
-          className="border p-3 rounded"
         />
 
         <input
-          type="tel"
+          className="border p-2 w-full rounded"
           name="phone"
-          placeholder="Phone Number"
+          placeholder="Phone"
           value={formData.phone}
           onChange={handleChange}
-          className="border p-3 rounded md:col-span-2"
         />
 
         <textarea
+          className="border p-2 w-full rounded"
           name="message"
-          placeholder="Your Message..."
+          placeholder="Message"
+          rows="4"
           value={formData.message}
           onChange={handleChange}
           required
-          rows="5"
-          className="border p-3 rounded md:col-span-2"
         />
 
-        <button
-          type="submit"
-          className="bg-sv-orange text-white py-3 px-6 rounded md:col-span-2"
-        >
+        <button className="bg-sv-purple text-white px-4 py-2 rounded hover:bg-purple-700">
           {status.type === "loading" ? "Sending..." : "Send Message"}
         </button>
       </form>
-
-      {status.msg && (
-        <p
-          className={`mt-4 text-center text-lg ${
-            status.type === "success" ? "text-green-600" : "text-red-600"
-          }`}
-        >
-          {status.msg}
-        </p>
-      )}
     </div>
   );
 }

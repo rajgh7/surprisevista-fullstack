@@ -8,10 +8,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.9",
+    "@heroicons/react": "^2.2.0",
+    "@tailwindcss/forms": "^0.5.10",
     "axios": "^1.7.2",
+    "canvas-confetti": "^1.9.4",
+    "framer-motion": "^12.23.25",
+    "lottie-react": "^2.4.1",
     "lucide-react": "^0.363.0",
     "quill": "^2.0.3",
     "react": "^18.2.0",
+    "react-confetti": "^6.4.0",
     "react-dom": "^18.2.0",
     "react-helmet": "^6.1.0",
     "react-quill": "^2.0.0",

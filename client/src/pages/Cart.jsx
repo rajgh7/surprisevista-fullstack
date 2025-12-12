@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
+// client/src/pages/Cart.jsx
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { strongCelebrate } from "../utils/confetti";
 
 export default function Cart() {
   const [cart, setCart] = useState([]);
@@ -9,84 +11,64 @@ export default function Cart() {
     phone: "",
     address: "",
   });
+
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState("");
 
-  const API_BASE = "https://surprisevista-backend.onrender.com";
+  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Load cart and normalize each item to always use `id`
     const saved = JSON.parse(localStorage.getItem("cart") || "[]");
-    const normalized = saved.map((it) => ({
-      ...it,
-      id: it.id || it._id, // fallback to _id if older entries exist
-      qty: typeof it.qty === "number" ? it.qty : 1,
-    }));
-    setCart(normalized);
+    setCart(saved);
   }, []);
 
-  function saveCart(newCart) {
-    // Ensure normalization before saving
-    const normalized = newCart.map((it) => ({ ...it, id: it.id || it._id }));
-    setCart(normalized);
-    localStorage.setItem("cart", JSON.stringify(normalized));
+  function saveCart(updated) {
+    setCart(updated);
+    localStorage.setItem("cart", JSON.stringify(updated));
+    window.dispatchEvent(new Event("storage"));
   }
 
   function updateQty(id, type) {
     const updated = cart.map((item) =>
-      (item.id || item._id) === id
-        ? { ...item, qty: Math.max(0, (item.qty || 1) + (type === "+" ? 1 : -1)) }
+      item.id === id
+        ? { ...item, qty: Math.max(1, item.qty + (type === "+" ? 1 : -1)) }
         : item
     );
-    saveCart(updated.filter((i) => i.qty > 0));
+    saveCart(updated);
   }
 
   function removeItem(id) {
-    saveCart(cart.filter((item) => (item.id || item._id) !== id));
+    saveCart(cart.filter((item) => item.id !== id));
   }
 
-  const subtotal = cart.reduce(
-    (sum, p) => sum + Number(p.price || 0) * (p.qty || 1),
-    0
-  );
+  const subtotal = cart.reduce((s, p) => s + p.price * p.qty, 0);
   const delivery = subtotal > 0 ? 59 : 0;
   const total = subtotal + delivery;
-
-  function generateOrderCode() {
-    const d = new Date();
-    const r = Math.floor(10000 + Math.random() * 90000);
-    return `SV-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(
-      d.getDate()
-    ).padStart(2, "0")}-${r}`;
-  }
 
   async function placeOrder(e) {
     e.preventDefault();
 
     if (!customer.name || !customer.email || !customer.address) {
-      setError("All required fields must be filled.");
-      return;
+      return setError("Please fill all required fields.");
     }
 
     if (!cart.length) {
-      setError("Your cart is empty!");
-      return;
+      return setError("Your cart is empty.");
     }
 
     setPlacing(true);
 
     try {
-      // Remove any Mongo `_id` if present, keep id as product identifier
-      const cleanItems = cart.map(({ _id, ...rest }) => {
-        // ensure id exists (some entries might have id or _id)
-        return {
-          ...rest,
-          id: rest.id || rest._id,
-        };
-      });
+      const cleanItems = cart.map((c) => ({
+        id: c.id,
+        name: c.name,
+        qty: c.qty,
+        price: c.price,
+        image: c.image,
+      }));
 
-      const orderCode = generateOrderCode();
+      const orderCode = "SV-" + Date.now();
 
       const res = await fetch(`${API_BASE}/api/orders`, {
         method: "POST",
@@ -101,12 +83,15 @@ export default function Cart() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Order failed");
+
+      if (!res.ok) throw new Error(data.message);
+
+      strongCelebrate();
 
       localStorage.removeItem("cart");
       navigate("/thank-you", { state: { order: data } });
     } catch (err) {
-      console.error("Place order error:", err);
+      console.error(err);
       setError("Failed to place order. Try again.");
     } finally {
       setPlacing(false);
@@ -114,109 +99,102 @@ export default function Cart() {
   }
 
   return (
-    <section className="max-w-4xl mx-auto px-6 py-10">
+    <section className="max-w-5xl mx-auto px-6 py-20">
       <h2 className="text-3xl font-heading text-sv-purple mb-6">Your Cart</h2>
 
       {cart.length === 0 ? (
-        <p>No items in your cart.</p>
+        <div className="text-center py-20">
+          <img
+            src="/placeholders/product.png"
+            className="w-32 h-32 mx-auto opacity-50"
+          />
+          <p className="mt-4 text-gray-600">
+            Your cart is empty. <a href="/products" className="text-sv-purple underline">Shop now</a>
+          </p>
+        </div>
       ) : (
         <>
+
+          {/* CART ITEMS */}
           {cart.map((item) => (
             <div
-              key={item.id || item._id}
-              className="bg-white p-4 rounded-lg shadow flex justify-between items-center mb-4"
+              key={item.id}
+              className="bg-white rounded-lg shadow p-4 flex flex-col md:flex-row justify-between items-center gap-4 mb-4"
             >
               <div className="flex items-center gap-4">
                 <img
-                  src={item.image}
-                  className="w-20 h-20 rounded object-cover"
-                  alt={item.name}
+                  src={item.image || "/placeholders/product.png"}
+                  className="w-28 h-28 rounded object-cover"
+                  onError={(e) => (e.target.src = "/placeholders/product.png")}
                 />
-                <div>
-                  <h3>{item.name}</h3>
-                  <p className="text-sv-orange">₹{item.price}</p>
 
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      onClick={() => updateQty(item.id || item._id, "-")}
-                      className="border px-3 py-1"
-                    >
-                      -
-                    </button>
-                    <span className="border px-3 py-1 bg-gray-50">
-                      {item.qty}
-                    </span>
-                    <button
-                      onClick={() => updateQty(item.id || item._id, "+")}
-                      className="border px-3 py-1"
-                    >
-                      +
-                    </button>
-                  </div>
+                <div>
+                  <h3 className="font-semibold">{item.name}</h3>
+                  <p className="text-sv-orange font-bold">₹{item.price}</p>
                 </div>
               </div>
 
-              <button
-                onClick={() => removeItem(item.id || item._id)}
-                className="text-sm border px-4 py-2"
-              >
-                Remove
-              </button>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center border rounded">
+                  <button onClick={() => updateQty(item.id, "-")} className="px-3 py-1">-</button>
+                  <span className="px-4">{item.qty}</span>
+                  <button onClick={() => updateQty(item.id, "+")} className="px-3 py-1">+</button>
+                </div>
+
+                <button
+                  onClick={() => removeItem(item.id)}
+                  className="text-sm border px-4 py-2 rounded hover:bg-gray-100"
+                >
+                  Remove
+                </button>
+              </div>
             </div>
           ))}
 
+          {/* TOTALS SECTION */}
           <div className="text-right text-xl font-semibold mt-6">
             <p>Subtotal: ₹{subtotal}</p>
             <p>Delivery: ₹{delivery}</p>
             <p>Total: ₹{total}</p>
           </div>
 
-          <form
-            onSubmit={placeOrder}
-            className="bg-pink-50 p-6 mt-8 rounded-lg space-y-3"
-          >
+          {/* CUSTOMER FORM */}
+          <form onSubmit={placeOrder} className="bg-pink-50 p-6 mt-10 rounded-lg space-y-3">
             <input
-              className="w-full border p-2 rounded"
+              required
               placeholder="Full Name"
-              required
-              onChange={(e) =>
-                setCustomer({ ...customer, name: e.target.value })
-              }
+              className="w-full p-2 border rounded"
+              value={customer.name}
+              onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
             />
-
             <input
-              className="w-full border p-2 rounded"
-              placeholder="Email"
+              required
               type="email"
-              required
-              onChange={(e) =>
-                setCustomer({ ...customer, email: e.target.value })
-              }
+              placeholder="Email"
+              className="w-full p-2 border rounded"
+              value={customer.email}
+              onChange={(e) => setCustomer({ ...customer, email: e.target.value })}
             />
-
             <input
-              className="w-full border p-2 rounded"
               placeholder="Phone Number"
-              onChange={(e) =>
-                setCustomer({ ...customer, phone: e.target.value })
-              }
+              className="w-full p-2 border rounded"
+              value={customer.phone}
+              onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
             />
-
             <textarea
-              className="w-full border p-2 rounded"
-              placeholder="Full Address"
               required
+              placeholder="Full Address"
               rows="3"
-              onChange={(e) =>
-                setCustomer({ ...customer, address: e.target.value })
-              }
+              className="w-full p-2 border rounded"
+              value={customer.address}
+              onChange={(e) => setCustomer({ ...customer, address: e.target.value })}
             />
 
             {error && <p className="text-red-600">{error}</p>}
 
             <button
               disabled={placing}
-              className="bg-sv-orange text-white w-full py-3 rounded"
+              className="w-full py-3 rounded bg-sv-orange text-white font-medium hover:bg-orange-600"
             >
               {placing ? "Placing Order…" : "Cash on Delivery"}
             </button>
